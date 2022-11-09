@@ -1,3 +1,8 @@
+## Script to take a PDF of the Encanto script and tidy it up
+## Written in an attempt to make the code transferable (with minor edits) to other scripts
+## Adapted from the tv script prep here:
+##    https://github.com/filmicaesthetic/stringr-things/blob/main/scripts/Processing%20Scripts.R
+
 library(stringr)
 library(dplyr)
 library(tidyr)
