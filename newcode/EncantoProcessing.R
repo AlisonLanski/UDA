@@ -50,11 +50,11 @@ script_deconstruct <-
                                     lead(section_flag,1) == TRUE, TRUE, FALSE)) %>%
   mutate(section_number = cumsum(section_flag)) %>%
   mutate(speaker = ifelse(speaker_flag == TRUE, raw_text, NA)) %>%
-  mutate(section = ifelse(lag(section_flag, 1) == TRUE, raw_text, NA))
+  mutate(section = ifelse(lag(section_flag, 1) == TRUE, raw_text, NA)) %>%
+  mutate(tag = coalesce(speaker, section))
 
 #set up and clean the tag column to provide info on each section
 script_tagged <- script_deconstruct %>%
-  mutate(tag = coalesce(speaker, section)) %>%
   mutate(tag = ifelse(str_detect(tag, "[a-z]"), "Action", tag)) %>%
   mutate(tag = str_remove(tag, pattern = " \\(V\\.O\\.\\)| \\(O\\.S\\.\\)| \\(CONT'D\\)| \\(INTO V\\.O\\.\\)")) %>%
   fill(tag, .direction = "down") %>%
@@ -63,7 +63,8 @@ script_tagged <- script_deconstruct %>%
   mutate(tag = ifelse(str_detect(tag, "\\s.*\\s.*\\s.*"), 'Action', tag)) %>%
   group_by(scene, section_number) %>%
   mutate(tag = first(tag)) %>% 
-  mutate(linenumber = row_number()) %>% ungroup()
+  mutate(linenumber = row_number()) %>% 
+  ungroup()
 
 #remove unnecessary rows, consolidate, order
 script_final <- script_tagged %>%
@@ -71,13 +72,15 @@ script_final <- script_tagged %>%
   filter(keep_flag) %>% 
   group_by(scene, section_number) %>%
   mutate(all_text = paste(raw_text, collapse = " ")) %>%
-  select(scene, section_number, tag, all_text) %>% distinct() %>%
+  select(scene, section_number, tag, all_text) %>% 
+  distinct() %>%
   ungroup() %>%
   group_by(scene) %>%
   arrange(section_number) %>%
   mutate(section = row_number()) %>%
   ungroup() %>%
-  select(scene, section, tag, all_text)
+  mutate(ordering = row_number()) %>%
+  select(scene, section, ordering, tag, all_text)
 
 #save out the final file
 library(readr)
