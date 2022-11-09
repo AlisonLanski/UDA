@@ -10,6 +10,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(magrittr)
 ```
 
 
@@ -31,7 +32,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 ```{r, echo = FALSE}
 tibble::tibble(match = c("Mick", "Rick", "candlestick", "quick"), 
-           `do not match` = c("fickleness", "unlicked", "Beck", "quickly")) |> 
+           `do not match` = c("fickleness", "unlicked", "Beck", "quickly")) %>% 
   flextable::flextable()
 ```
 
@@ -39,16 +40,24 @@ tibble::tibble(match = c("Mick", "Rick", "candlestick", "quick"),
 
 ```{r, echo = FALSE}
 tibble::tibble(match = c("effusive", "fluted", "nihilistic", "suspenseful"), 
-           `do not match` = c("otto", "abba", "trillion", "unfitting")) |> 
+           `do not match` = c("otto", "abba", "trillion", "unfitting")) %>% 
   flextable::flextable()
+
+##little chiasmus in the middle of the do not match words, so you can find them with 
+#grepl(pattern = "(.)(.)\\2\\1", x = test2)
+#or undo all of it with !grepl(pattern = "(.)(.)\\2\\1", x = test2)
+#probably a way to do this with lookaheads, but i can't figure it out
+
 ```
 
 ### Getting harder
 
 ```{r, echo = FALSE}
 tibble::tibble(match = c("civic", "level", "rotator", "tenet"), 
-           `do not match` = c("pretest", "sunburn", "springer", "gourmet")) |> 
+           `do not match` = c("pretest", "sunburn", "springer", "gourmet")) %>% 
   flextable::flextable()
+#this is ugly but it works
+#grepl(x = test3, pattern = "(^(.)(.)(.)(.)\\4\\3\\2$)|(^(.)(.)(.)\\8\\7$)")
 ```
 
 ### Are these even words?
@@ -57,7 +66,7 @@ tibble::tibble(match = c("civic", "level", "rotator", "tenet"),
 tibble::tibble(match = c("intervisibility", "pseudoprimitivism", 
                      "micropoikilitic", "odontonosology"), 
            `do not match` = c("overregularly", "energetics", 
-                        "observancy", "predisable")) |> 
+                        "observancy", "predisable")) %>% 
   flextable::flextable()
 ```
 
@@ -109,6 +118,10 @@ $
 Can you match everything that starts with a dollar sign?
 
 What about multiple e's only?
+--if you want them in order, then you can just do grepl(x = test4, pattern = "e{2,}")
+--This works if you want to catch multi-position  grepl(x = test4, pattern = "e.*e")
+-- if you get fancier (but this is too early) grepl(x = test4, pattern = "(e).*\\1")
+--Want to find lower and upper? grepl(x = test4, pattern = "([e|E]).*\\1")
 
 ### Weird Things
 
@@ -322,8 +335,8 @@ Let's take a crack at solving a problem:
 library(rvest)
 library(stringr)
 
-raven <- read_html("https://discoverpoetry.com/poems/edgar-allan-poe/the-raven/") |> 
-  html_elements("p") |> 
+raven <- read_html("https://discoverpoetry.com/poems/edgar-allan-poe/the-raven/") %>% 
+  html_elements("p") %>% 
   html_text()
 ```
 

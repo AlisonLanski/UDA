@@ -10,6 +10,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(magrittr)
 ```
 
 ## Javascript Object Notation
@@ -46,7 +47,7 @@ So structured...so incredibly structured. However, that structure does not mean 
 ```{r}
 library(jsonlite) # You will need to install this.
 
-congress_critters <- fromJSON("~/UDA/data/critters.json")
+congress_critters <- fromJSON(here::here("data/critters.json"))
 
 dplyr::glimpse(congress_critters$objects)
 ```
@@ -54,7 +55,7 @@ dplyr::glimpse(congress_critters$objects)
 You could also use `read_json`, but the `fromJSON` function will try to give you a nicer return (which it usually does). Let's see how we might tackle something a bit rougher:
 
 ```{r}
-congress_hard <- read_json("~/UDA/data/critters.json")
+congress_hard <- read_json(here::here("data/critters.json"))
 ```
 
 
@@ -69,7 +70,7 @@ head(congress_brief)
 ```
 
 
-```{python}
+```{python, eval = FALSE}
 import json # Already comes with python.
 import pandas as pd
 from datetime import date
@@ -110,7 +111,7 @@ congress_dt <- as.data.table(congress_critters$objects)
 Won't shock you to know that it isn't much more complicated than base R:
 
 ```{r}
-congress_dt[, .(party, person.sortname)] |>
+congress_dt[, .(party, person.sortname)] %>%
   head()
 ```
 
@@ -120,7 +121,7 @@ Again, nothing wild:
 
 ```{r}
 congress_dt[congress_dt$senator_rank == "junior", 
-            .(party, person.sortname)] |>
+            .(party, person.sortname)] %>%
   head()
 ```
 
@@ -142,9 +143,14 @@ congress_dt[,
             .(mean_age = mean(age), .N, .GRP), 
             by = list(senator_rank, person.gender)]
 ```
-
+To subset before you apply the function, use the "subset of data.table" symbol .SD with .SDcols
+This allows us to use lambda notation to apply the function to numerous columns without requiring a lengthy .(mean_x = mean(x), mean_y =  mean(y), mean_z = mean(z))
+intead we can say
+lapply(.SD, mean),
+by = senator_rank,
+.SDcols = c("x", "y", "z")
 ```{r}
-congress_dt[, 
+congress_dt[,
             lapply(.SD, mean), 
             by = senator_rank, 
             .SDcols = c("age")]
@@ -186,7 +192,7 @@ Like R, Python has undergone an evolution. If you want to work hard, everything 
 
 No doubt that pandas is popular; instead of reinventing the wheel people have decided to leverage pandas's API. What we see with `dask` is the ability to use pandas functions, but with greater speed.
 
-```{python}
+```{python, eval = FALSE}
 import dask
 import dask.dataframe as dd
 import json
@@ -205,7 +211,7 @@ critters_dd.groupby(['senator_rank']).agg({
 
 ### polars
 
-```{python}
+```{python, eval=FALSE}
 import polars as pl
 
 critters.to_csv('/Users/sethberry/UDA/data/critters_pd.csv')
@@ -227,12 +233,15 @@ We are going to see Arrow as a way to read and write data, but spend some time l
 ```{r}
 library(arrow)
 
-write_feather(congress_brief, "/Users/sethberry/UDA/data/congress_feather.feather")
+write_feather(congress_brief, here::here("data/congress_feather_lanski.feather"))
+congress_feather <- arrow::read_feather(here::here("data/congress_feather_lanski.feather"))
+str(congress_feather)
+str(congress_brief)
 ```
 
 And now read that into Python:
 
-```{python}
+```{python, eval = FALSE}
 import pyarrow.feather as ft
 import pandas as pd
 
