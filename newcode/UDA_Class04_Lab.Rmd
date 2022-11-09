@@ -1,0 +1,196 @@
+---
+title: "Regular Expressions Lab Solutions"
+author: "Unstructured Data Analytics (ITAO/MSSA)"
+
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+### Click to expand the code chunks
+
+In this exercise only requires the `stringr` package. Install and load it as needed.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#library(tidyverse)
+library(stringr)
+```
+
+## Part 1: Practice with the `words` data
+Contain "oo"
+```{r}
+str_subset(words, pattern = "oo")
+```
+
+Start with "g"
+```{r}
+str_subset(words, pattern = "^g")
+```
+
+End with "d"
+```{r}
+str_subset(words, pattern = "d$")
+```
+
+Start with a vowel
+```{r}
+str_subset(words, pattern = "^[aeiou]")
+```
+
+
+## Part 2: Practice with the `fruit` data
+Ends with a vowel
+```{r}
+str_subset(fruit, "[aeiou]$")
+```
+
+Has two words
+```{r}
+#simple using character classes 
+str_subset(fruit, "\\w\\s\\w")
+
+#another way to use character classes
+str_subset(fruit, "[:alpha:]+\\s[:alpha:]+")
+
+#simpler but riskier method
+#simple because it only uses one thing
+#risky because it would match with extraneous beginning or end spaces, if they existed in the dataset
+str_subset(fruit, "\\s")
+
+
+```
+Has 2 "r" in a row
+```{r}
+str_subset(fruit, "r{2}")
+```
+
+
+
+Are single words
+```{r}
+#one way (only letters)
+str_subset(fruit, "^[:alpha:]+$")
+
+#another way (only non-spaces)
+#would match punctuation or numbers though
+str_subset(fruit, "^[^\\s]+$")
+
+#another way
+#some number of "no spaces" at the start and no space at the end either
+#could still match punctuation or numbers
+str_subset(fruit, "^[^\\s]*[^\\s]$")
+```
+
+Has any doubled letter
+```{r}
+#ok so this was hard, because it relies on groups with backreferencing... and we didn't talk about back referencing
+#but i wanted you to try and think about it
+#this says look for a group of "any item" (.) 
+#followed by a reference to that group  \\1 
+str_subset(fruit,
+            pattern = "(.)\\1")
+```
+
+
+Match 2 "p"s that are not consecutive
+```{r}
+#this is enough. pepper is allowed to match because it has "pep" in it.
+str_subset(fruit,
+           pattern = "p.+p")
+
+#if you want to also EXCLUDE words with consecutive pp, that's harder
+#a p, followed by an number of not-p, followed by a p, followed by either more not-p or end-of-string
+str_subset("paap",
+          pattern = "p[^p]+p([^p]+|$)")
+
+```
+## Part 3: Practice with the `sentences` data
+Contains a ? or !
+```{r}
+str_subset(sentences, pattern = "\\?|\\!")
+```
+
+Contains "fence" or "over" as complete words
+```{r}
+#if you just look for fence|over, you'll pull in words like "cover"
+str_subset(sentences, pattern = "\\Wfence\\W|\\Wover\\W")
+```
+
+not X becomes not_X
+```{r}
+#str_replace, as you may have noticed, gives back ALL sentences with or without changes
+#so to simplify the output, it's nice to find the sentences first and save them into a smaller set
+
+sentences_not <- str_subset(sentences, pattern = " not ")
+
+str_replace(sentences_not, pattern = " not ", replacement = " not_")
+
+#you can probably do this in a fancier way, but simple characters strings seem to work
+```
+
+Contains "fence" and "over"
+```{r}
+#to be safe, include \\W, but for this set of data it doesn't matter
+str_subset(sentences, pattern = "(.*\\Wfence\\W.*\\Wover\\W.*)|(.*\\Wover\\W.*\\Wfence\\W.*)")
+```
+
+
+## Part Whoops: Challenge (with your own sample strings)
+  
+Apparently I took these out of the instructions... try them if you want!  
+  
+Replace "ate" with "8"  
+"late", "mate", "abate", "cake"
+```{r}
+str_replace(c("late", "mate", "abate", "cake"), 
+            pattern = "ate",
+            replacement = "8")
+```
+
+
+Replace any doubled letter with a single letter   
+"boo", "moo", "baa", "kitten", "hand"
+```{r}
+#again, this requires groups with back references
+str_replace_all(c("boo", "moo", "baa", "kitten", "hand"),
+                pattern = "(.)\\1",
+                replacement = "\\1")
+```
+
+
+
+## Part 4: If you want to test yourself more (for fun!)
+Basic pig latin  
+"apple", "pineapple", "mango"
+```{r}
+#this requires MORE groups with references.  Each set of () can be called as a numbered group (in order)
+str_replace(c("apple", "pineapple", "mango"),
+           pattern = "^(.)(.*)$",
+           replacement = "\\2\\1ay")
+```
+Consonant-only pig latin  
+"apple", "pineapple", "mango"
+```{r}
+str_replace(c("apple", "pineapple", "mango"),
+           pattern = "^([^aeiou])(.*)$",
+           replacement = "\\2\\1ay")
+```
+
+Two-word pig latin  
+"pumpkin pie", "vanilla cake", "sugar cookie"
+```{r}
+str_replace(c("pumpkin pie", "vanilla cake", "sugar cookie"),
+           pattern = "^([^aeiou])(.*)\\s([^aeiou])(.*)$",
+           replacement = "\\2\\1ay \\4\\3ay")
+```
+
+

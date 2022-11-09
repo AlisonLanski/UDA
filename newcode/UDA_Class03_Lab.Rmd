@@ -1,0 +1,75 @@
+---
+title: "Analyzing Text Preliminaries: Lab"
+author: "Unstructured Data Analytics"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+  always_allow_html: true
+  pdf_document:
+    toc: yes
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+Set up packages
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(gutenbergr)
+library(tidytext)
+```
+
+Download "War of the Worlds"
+```{r ww_download}
+war_worlds <- gutenberg_download(36, mirror = 'https://gutenberg.pglaf.org/')
+```
+
+## Using concepts and skills from the previous class, try to answer the following questions
+
+### 1. What are the 10 most common words in this book overall?
+
+```{r full_count}
+war_worlds %>%
+  
+```
+
+### 2. What are the 10 most common words in this book after removal of stopwords?
+```{r no_stopwords_count}
+
+```
+
+Download more HG Wells books
+```{r Wells_download}
+hgwells <- gutenberg_download(c(35, 36, 159, 5230), meta_fields = "title", mirror = 'https://gutenberg.pglaf.org/')
+```
+
+### 3. Which books we did get?
+```{r download_titles}
+hgwells %>%
+```
+
+
+### 4. What are the most frequent words in each title, after removing stopwords?  Do they seem related at all to subject matter suggested by the title? What do you think the books might be about, based on these words?
+```{r count_by_title}
+hgwells %>%
+```
+
+### 5. What are the most frequent bigrams in each title, including stopwords? Does this seem "better" to you than your results of single-words?
+
+```{r bigram_by_title}
+hgwells %>%
+```
+
+### 6. Create a reduced dataframe that only has words occurring more than 25 times in War of the Worlds
+```{r smaller_data}
+war_26 <- war_worlds %>%
+```
+
+
+### 7. What are some types of visualizations that might help represent the information in war_reduced? (Just think about it for now)
+

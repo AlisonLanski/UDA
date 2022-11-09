@@ -1,0 +1,376 @@
+---
+title: "Analyzing Text"
+author: "Unstructured Data Analytics"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+  always_allow_html: true
+  pdf_document:
+    toc: yes
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(gutenbergr)
+library(tidytext)
+```
+
+
+
+### 5. Term Frequency: simple
+To illustrate simple word frequency, let's re-download the text from the book "The War of the Worlds" by HG Wells:
+
+```{r}
+war_worlds <- gutenberg_download(36, mirror = 'https://gutenberg.pglaf.org/')
+war_worlds
+```
+
+
+Next, we tidy the text, remove stop words and get the frequency of each word in the text:
+
+```{r}
+war_worlds %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(word, sort = TRUE)
+```
+
+Using the word frequency, we can create a simple word cloud of words that occur at least 25 times. We use the `wordcloud2()` function from the `wordcloud2` package for this.
+
+```{r}
+library(wordcloud2)
+war_worlds %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(word) %>%
+  filter(n >= 25) %>% 
+  wordcloud2(size = .5, shape = "circle")
+```
+
+In the previous example, we used word count to represent word frequency for one book. 
+
+What if we want to compare books?  We can examine 4 different HG Wells books with book ids `35`, `36`, `159` and `5230`:
+
+
+```{r}
+hgwells <- gutenberg_download(c(35, 36, 159, 5230), meta_fields = "title", mirror = 'https://gutenberg.pglaf.org/')
+```
+
+What books did we get? Let's find out:
+
+```{r}
+hgwells %>%
+  distinct(title)
+```
+
+Again, let's run counts by let's do it by title
+
+Next let's do some basic word counts. 
+
+```{r}
+hgwells %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(title, word) %>%
+  arrange(title, desc(n))
+```
+
+And then, to simplify a little and prep for more images, we'll pull only the top 40 words for each book.
+```{r}
+hgwells_by_title <- hgwells %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(title, word, name ="wordcount") %>%
+  arrange(title, desc(wordcount)) %>%
+  group_by(title) %>%
+  slice_max(wordcount, n = 40)
+
+```
+
+And we can compare in a table  
+After we do a little finagling to get a nice-looking pivot (since some words share the same count)
+```{r}
+hgwells_by_title %>%
+  mutate(rank = rank(desc(wordcount), ties.method = "min")) %>%
+  unite(col = "word_counter", word, wordcount, sep = ": ") %>%
+  pivot_wider(names_from = title, values_from = word_counter,  
+              values_fn = list(word_counter =  ~ toString(unique(.))))
+```
+
+
+
+Or we can compare in a wordcloud -- let's start with just one book 
+```{r}
+hgwells_by_title %>%
+  filter(title == "The Time Machine") %>% 
+  ungroup() %>%
+  select(-title) %>%
+  wordcloud2(size = .5, shape = "circle")
+```
+  
+  
+  
+**Question**: Why does it fail? How can we fix it?
+  
+  
+  
+```{r eval=FALSE}
+hgwells_by_title %>%
+  filter(title == "The Time Machine") %>% 
+  wordcloud2(size = .5, shape = "circle")
+
+hgwells_by_title %>%
+  filter(title == "The Invisible Man: A Grotesque Romance") %>% 
+  ungroup() %>%
+  select(-title) %>%
+  wordcloud2(size = .5, shape = "circle")
+
+hgwells_by_title %>%
+  filter(title == "The Island of Doctor Moreau") %>% 
+  ungroup() %>%
+  select(-title) %>%
+  wordcloud2(size = .5, shape = "circle")
+
+hgwells_by_title %>%
+  filter(title == "The War of the Worlds") %>% 
+  ungroup() %>%
+  select(-title) %>%
+  wordcloud2(size = .5, shape = "circle")
+```
+
+
+#### An aside  
+Who wants do to all that copy-paste-repeat?   
+When you can, consider higher-level R functions that let you iterate over subsets of the data.   
+Many of these are found in the `purrr` package.    
+But in this case, since we have a grouped dataframe, we can use an experimental function in `dplyr`
+```{r}
+#NOTE: this does NOT render correctly in a knitted file, but ggplot functions usually do.
+group_map(hgwells_by_title, wordcloud2, size = .5, shape = "circle")
+```
+
+Nice, right?
+  
+If you want to combine wordclouds with the ecosystem of ggplot2 (for example: to facet!)
+check out the [ggwordcloud package](https://cran.r-project.org/web/packages/ggwordcloud/index.html) and [vignette](https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html)
+
+If you want to show multiple plots at the same time with better control over placement
+check out the [gridExtra package](https://cran.r-project.org/web/packages/gridExtra/index.html) and  [vignette](https://cran.r-project.org/web/packages/gridExtra/vignettes/arrangeGrob.html)
+  
+**Question:** What are some other ways we could visualize this information?
+  
+Remember from Visualization classes some ways to show frequencies, like bar charts and distribution charts.
+Let's go back to our rhyme to keep it simple
+```{r}
+#We'll add the structure directly this time 
+rhyme <- tibble(line = 1:6,
+                text = c(
+                  "Hey, diddle, diddle,",
+                  "The cat and the fiddle,",
+                  "The cow jumped over the moon;",
+                  "The little dog laughed",
+                  "To see such sport,",
+                  "And the dish ran away with the spoon."
+                  )
+                )
+```
+
+
+```{r}
+#This is not pretty, but gets the idea across
+rhyme %>% 
+  unnest_tokens(output = "word", input = "text", token = "words") %>%
+  ggplot(aes(x = word)) +
+  geom_bar()
+```
+
+What about a cumulative distribution?  We can do this with counts or by frequency (percents)
+Here is one way to do it with counts
+```{r}
+#This graph also could use some cleanup
+
+#This style of plot also needs a little more prep work, like...
+#establishing counts
+#setting up a cumulative count (in order) for the y-values
+#setting up a grouping column for the x-values 
+#  (otherwise, a line graph won't render, because x is categorical)
+rhyme %>% 
+  unnest_tokens(output = "word", input = "text", token = "words") %>%
+  count(word, name = "wordcount") %>% 
+  arrange(desc(wordcount)) %>%
+  mutate(cumulative = cumsum(wordcount),
+         title = "rhyme") %>% #this is my grouping variable
+  ggplot(aes(x = reorder(word, desc(wordcount)), 
+             y = cumulative, group = title)) +
+  #geom_point() +
+  geom_line() +
+  scale_y_continuous(limits = c(0,30))
+```
+Here is one way to do it with percents
+Empirical Cumulative Distribution
+```{r}
+#get wordcounts, put in order
+rhyme_counts <- rhyme %>% 
+  unnest_tokens(output = "word", input = "text", token = "words") %>%
+  mutate(title = "rhyme") %>%
+  count(word, name = "wordcount") %>%
+  arrange(desc(wordcount), word) %>%
+  mutate(count_order = row_number())
+
+#apply back to the regular dataframe
+rhyme %>%
+  unnest_tokens(output = "word", input = "text", token = "words") %>%
+  left_join(rhyme_counts, by = "word") %>%
+  mutate(title = "rhyme") %>%
+  ggplot(aes(x = reorder(word, count_order), group = "title")) +
+  stat_ecdf(geom = "line")
+```
+  
+
+## Regular Expressions
+Let's talk about that pattern match from last class
+What was happening?
+
+`
+mutate(
+    linenumber = row_number(),
+    chapter = cumsum(str_detect(
+      text, regex("^[IVX]*\\.$", ignore_case = FALSE)
+    )),
+    book = cumsum(str_detect(
+      text, regex("^BOOK [\\w]", ignore_case = FALSE)
+    ))
+  ) 
+`
+  
+Let's simplify our starting data and look at how this workds
+```{r}
+test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+
+#what if we just look for the letters of Roman numerals?
+str_subset(string = test, pattern = "IVX")
+  
+```
+
+Hmmm.  We don't want to look for the specific pattern "IVX", we want to look for those letters in any combination, but only those 3 letters.
+Let's see what it matches to
+```{r}
+# the brackets are say "match any one of the characters inside"
+# the + says "match 1 or more times"
+# so together, this says "match one or more of the letters I, V, X"
+
+#the pattern it finds:
+str_extract(string = test, pattern = "[IVX]+")
+
+#remember the starting string
+#test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+```
+
+Let's see the whole string that has the match
+```{r}
+#the whole string it finds
+str_subset(string = test, pattern = "[IVX]+")
+
+#remember the starting string
+#test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+```
+
+What if we only want strings that start with those letters?
+```{r}
+#we can add a start anchor ^
+str_subset(string = test, pattern = "^[IVX]+")
+
+#remember the starting string
+#test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+```
+
+What if we only want strings that contain those specific letters?
+```{r}
+#anchor both sides
+str_subset(string = test, pattern = "^[IVX]+$")
+
+#remember the starting string
+#test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+```
+
+
+What if want to find the popes?
+```{r}
+#we can add explicit exact strings to our search
+str_subset(string = test, pattern = "^Pope Leo [IVX]+$")
+
+#remember the starting string
+#test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+```
+
+Why didn't we get the other Popes?
+Can we get Leo II?  
+```{r}
+#Try adding the . 
+str_subset(string = test, pattern = "^Pope Leo [IVX]+.$")
+
+#remember the starting string
+#test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+```
+
+Why did we get ALL of the popes? Because . in regex matches any character.
+To match a period, we have to add the "escape" character \
+```{r, eval = FALSE}
+#we can add an end anchor $
+str_subset(string = test, pattern = "^Pope Leo [IVX]+\.$")
+
+#remember the starting string
+#test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+```
+
+That just throws an error... because in R, we have to escape escapes.
+(This is due to how R stores and recognizes punctuation characters)
+My method: keep adding \ until it works
+```{r}
+#we can add an end anchor $
+str_subset(string = test, pattern = "^Pope Leo [IVX]+\\.$")
+
+#remember the starting string
+#test <- c("IV.", "X.", "VI", "Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!")
+```
+
+
+What if we have more popes, and we want to pull out only John and Francis?
+```{r}
+more_popes <- c("Pope Leo IV", "Pope Leo II.", "Pope Leo XIV!", "Pope John II", "Pope John III.", "Pope Francis I.")
+
+#We can use | to mean "or" 
+str_subset(string = more_popes, pattern = "John|Francis")
+```
+And what if we also want to limit to John/Francis popes with punctuation?
+```{r}
+#when you want "or" in combination with other regex, wrap your "or" stuff in () to group it
+#because this one is more complicated, we also have to add back other regex details
+str_subset(string = more_popes, pattern = "(John|Francis) [XIV]+\\.")
+```
+####Takeaways here
+If you want to limit to a subset of characters, put them in []
+If you want one or more of something, use + 
+If you want any character, use .
+If you want a period (or other punctuation), plan to double-escape it \\.
+If you want to find something at the start, use ^
+If you want to find something at the end, use $
+If you want to say "or" use |
+If you want to group something, use ()
+If you know exactly what you want, just search for it! "find this"
+NOTE: these expressions ARE case-sensitive. 
+
+If you want to ignore case, you can wrap the whole "pattern" section as follows and add an argument:
+```{r}
+#change TRUE to FALSE or j to J to see what happens
+str_subset(string = more_popes, regex(pattern = "(john|francis) [XIV]+\\.", ignore_case = TRUE))
+```
+

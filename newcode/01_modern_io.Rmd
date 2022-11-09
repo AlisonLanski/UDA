@@ -1,0 +1,252 @@
+---
+title: "Modern I/O"
+description: |
+  Moving Beyond Commas
+output:
+  distill::distill_article:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(magrittr)
+```
+
+## Javascript Object Notation
+
+The web runs on data stored in Javascript Object Notation (JSON). Every single table with dynamic updates is done through JSON. Website make requests to each other with JSON. It is with great sadness that I present to you JSON as the first major topic in Unstructured. Let's take a look at some <a href="https://www.json.org/json-en.html">JSON's</a> example of JSON and see if you can figure out why this might make me sad.
+
+```
+{
+    "glossary": {
+        "title": "example glossary",
+		"GlossDiv": {
+            "title": "S",
+			"GlossList": {
+                "GlossEntry": {
+                    "ID": "SGML",
+					"SortAs": "SGML",
+					"GlossTerm": "Standard Generalized Markup Language",
+					"Acronym": "SGML",
+					"Abbrev": "ISO 8879:1986",
+					"GlossDef": {
+                        "para": "A meta-markup language, used to create markup languages such as DocBook.",
+						"GlossSeeAlso": ["GML", "XML"]
+                    },
+					"GlossSee": "markup"
+                }
+            }
+        }
+    }
+}
+```
+
+So structured...so incredibly structured. However, that structure does not mean it is ready for us. Let's see what we can do with the `critters` file on Canvas.
+
+```{r}
+library(jsonlite) # You will need to install this.
+
+congress_critters <- fromJSON("C:/Users/alanski/Documents/GitHub/UDA/data/critters.json")
+
+dplyr::glimpse(congress_critters$objects)
+```
+
+You could also use `read_json`, but the `fromJSON` function will try to give you a nicer return (which it usually does). Let's see how we might tackle something a bit rougher:
+
+```{r}
+congress_hard <- fromJSON("C:/Users/alanski/Documents/GitHub/UDA/data/critters.json")
+```
+
+
+```{r}
+congress_brief <- purrr::map_df(1:100, ~{
+  data.frame(id = congress_hard$objects$person$bioguideid[[.x]], 
+             link = congress_hard$objects$person$link[[.x]], 
+             state = congress_hard$objects$state[[.x]])
+})
+
+head(congress_brief)
+```
+
+
+```{python, eval = FALSE}
+import json # Already comes with python.
+import pandas as pd
+from datetime import date
+
+critters_json = json.load(open('/Users/sethberry/UDA/data/critters.json'))
+
+critters = pd.json_normalize(critters_json, record_path = ['objects'])
+
+critters['age'] = pd.to_datetime(date.today()) - pd.to_datetime(critters['person.birthday'])
+
+critters['age'] = critters['age'].dt.days / 365
+```
+
+Just like R, pandas will offer different methods for reading json. If you don't have anything too nesty, you can just use `pd.read_json`. 
+
+You've probably got the general idea. No matter the situation, you are going to need to put in some effort to get the data in the right shape.
+
+## R
+
+You've learned some base R and you've probably taken a liking to the tidyverse, but what if I told you that there is a third R dialect? What if I told you that this dialect was infinitely faster than either of those? If find yourself working in the R world, you will want to switch to data.table eventually. You might find yourself asking, "Why?", and that is a solid question. First, it is less prone to major changes than the tidyverse. Second, it will make you a better R users; it is more base-like in operation than the tidyverse.
+
+Let's see how some common tasks might look.
+
+<aside>
+The fread function from data.table is the fastest way to read data into memory.
+</aside>
+
+We can start by converting our data frame into a data table:
+
+```{r}
+library(data.table)
+
+congress_dt <- as.data.table(congress_critters$objects)
+```
+
+### select
+
+Won't shock you to know that it isn't much more complicated than base R:
+
+```{r}
+congress_dt[, .(party, person.sortname)] %>%
+  head()
+```
+
+### filter
+
+Again, nothing wild:
+
+```{r}
+congress_dt[congress_dt$senator_rank == "junior", 
+            .(party, person.sortname)] %>%
+  head()
+```
+
+### mutate
+
+Let's add an age variable in there:
+
+```{r}
+congress_dt[, 
+            age := as.numeric((Sys.Date() - as.Date(congress_dt$person.birthday)) / 365)]
+```
+
+### group by and summarize
+
+This is where we have the biggest shift -- the 3rd index position. Any data table object has an i, j, and k. Usually the k position is for `by` variables (or other special features).
+
+```{r}
+congress_dt[, 
+            .(mean_age = mean(age), .N, .GRP), 
+            by = list(senator_rank, person.gender)]
+```
+To subset before you apply the function, use the "subset of data.table" symbol .SD with .SDcols
+This allows us to use lambda notation to apply the function to numerous columns without requiring a lengthy .(mean_x = mean(x), mean_y =  mean(y), mean_z = mean(z))
+intead we can say
+lapply(.SD, mean),
+by = senator_rank,
+.SDcols = c("x", "y", "z")
+```{r}
+congress_dt[,
+            lapply(.SD, mean), 
+            by = senator_rank, 
+            .SDcols = c("age")]
+```
+
+
+### Chained indices
+
+```{r}
+congress_dt[congress_dt$senator_rank == "junior", 
+][, 
+  .(mean_age = mean(age), .N), 
+  by = list(person.gender)
+]
+```
+
+### Using disk.frame
+
+Nothing beats the speed of data.table, but what if you want something faster?
+
+```{r}
+library(disk.frame)
+
+setup_disk.frame(3)
+
+congress_df <- as.disk.frame(congress_dt[, congress_numbers := NULL])
+
+congress_df[, 
+            .(mean_age = mean(age), .N, .GRP), 
+            by = list(senator_rank, person.gender)]
+```
+
+
+## Python
+
+Like R, Python has undergone an evolution. If you want to work hard, everything could be done with numpy (I'd rather let all of you hit me in the kneecaps). People wanted/needed something a little easier, so pandas became popular. Talk to anybody about speed, though, and you will hear complaints about pandas being slow. Let's explore a few different packages: dask and polars
+
+### dask
+
+No doubt that pandas is popular; instead of reinventing the wheel people have decided to leverage pandas's API. What we see with `dask` is the ability to use pandas functions, but with greater speed.
+
+```{python, eval = FALSE}
+import dask
+import dask.dataframe as dd
+import json
+import pandas as pd
+
+critters_json = json.load(open('/Users/sethberry/UDA/data/critters.json', encoding='utf-8'))
+
+critters = pd.json_normalize(critters_json, record_path = ['objects'])
+
+critters_dd = dd.from_pandas(critters, npartitions = 5)
+
+critters_dd.groupby(['senator_rank']).agg({
+  'person.gender':'count'
+  }).compute()
+```
+
+### polars
+
+```{python, eval=FALSE}
+import polars as pl
+
+critters.to_csv('/Users/sethberry/UDA/data/critters_pd.csv')
+
+critters_pl = pl.read_csv('/Users/sethberry/UDA/data/critters_pd.csv')
+
+critters_pl.select([
+  pl.col('senator_rank').filter(pl.col('person.gender') == 'female'),
+  ])
+```
+
+
+## Porque no los dos
+
+A few really smart people have decided that R and Python are both useful and you probably want to pass information between them...queue the <a href="https://arrow.apache.org/docs/">Apache Arrow</a> project.
+
+We are going to see Arrow as a way to read and write data, but spend some time looking at the website -- you can do a lot with Arrow, no matter the language you use.
+
+```{r}
+library(arrow)
+
+write_feather(congress_brief, here::here("data/congress_feather_lanski.feather"))
+congress_feather <- arrow::read_feather(here::here("data/congress_feather_lanski.feather"))
+str(congress_feather)
+str(congress_brief)
+```
+
+And now read that into Python:
+
+```{python, eval = FALSE}
+import pyarrow.feather as ft
+import pandas as pd
+
+ft.read_table("/Users/sethberry/UDA/data/congress_feather.feather")
+
+pd.read_feather("/Users/sethberry/UDA/data/congress_feather.feather")
+```
+

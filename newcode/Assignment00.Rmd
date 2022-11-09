@@ -1,0 +1,106 @@
+---
+title: 'Assignment #0 - Data manipulation review'
+output:
+  html_document:
+    df_print: paged
+---
+
+# Instructions
+Add code below to perform the requested actions.  
+Submit your final result as a knitted HTML file to Canvas.  
+
+Free startup
+```{r startup, include = F}
+library(dplyr)
+library(tidyr)
+glimpse(starwars)
+```
+
+
+## Q1
+Limit the starwars dataset to only include the columns  
+*name, height, mass, hair_color, eye_color, skin_color, and species*  
+and assign it to the object sw  
+Hint for this and following: https://r4ds.had.co.nz/transform.html
+```{r Q1}
+
+sw <- starwars #your code here
+
+#show the output
+colnames(sw)
+```
+
+## Q2
+Limit your new dataset, sw, further to only include characters who are taller than 181cm
+```{r Q2}
+sw <- sw #your code here
+
+#show some output
+min(sw$height)
+```
+
+
+## Q3
+Order your revised dataset alphabetically by name, and show the first 10
+```{r Q3}
+sw_first10 <- sw  #your code here
+
+#show some output (adjust/add to this code if necessary)
+sw_first10
+```
+
+
+## Q4
+Create a new column for the base starwars data that converts cm to inches, called "height_inch"  
+The value should be height divided by 2.54 
+```{r Q4}
+sw2 <- starwars #your code here
+
+#show some results
+paste("Characters who are", sw2$height[1], "in cm are", sw2$height_inch[1], "in inches")
+```
+## Q5
+For each species as a group, calculate and show the *average height in inches* and the *average mass*.  
+Make sure each answer is a number (not NA) but NaN is acceptable.
+```{r Q5}
+sw_metrics <- sw2  #your code here
+
+#show some results 
+sw_metrics
+```
+
+## Q6
+Make the sw data more vertical (pivot longer) by combining the information 
+from eye_color, hair_color, and skin_color  
+into one column (called "descriptor" with the original column name)   
+and a second column (called "color" with the original column value).  
+Hint: https://r4ds.had.co.nz/tidy-data.html
+
+```{r}
+sw_pivoted <- sw  #your code here
+
+#show some results
+sw_pivoted
+```
+
+## Q7
+Make a rough cut of name into 2 columns, one for first name and one for last name, where the split point is a space.  
+If a name has multiple spaces, only split it once (at the first space)  
+If a name as no space, it should not be split (and last name will end up as null)  
+*Hint: if you're using separate, check documentation for the "extra" argument  
+```{r Q7}
+sw_names <- sw  #your code here
+
+#show results for humans, base-R style
+sw_names[sw_names$species == 'Human',]
+```
+
+## Q8  
+How many characters only have 1 name?  
+There are a several methods to figure this out where R can count for you  
+```{r Q8}
+
+sw_names #your code here
+
+```
+

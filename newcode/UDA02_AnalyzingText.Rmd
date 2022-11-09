@@ -1,0 +1,459 @@
+---
+title: "Analyzing Text"
+author: "Unstructured Data Analytics"
+output:
+  pdf_document:
+    toc: yes
+  always_allow_html: true
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+```
+
+### 1. Project Gutenberg
+The `gutenbergr` package provides several functions that allow us to import public domain books from Project Gutenberg (www.gutenberg.org).
+
+
+```{r}
+library(gutenbergr)
+```
+
+In order to import a book, we first need the book id. However, if we do not know the book id, we can search for it by title. The `gutenberg_works()` function provides us with metadata about each of the works in the library. For example, we can get metadata about "The War of the Worlds":
+
+```{r}
+gutenberg_works() %>%
+  filter(title == "The War of the Worlds") %>%
+  glimpse()
+```
+
+From the metadata, we get the book id, title, author, etc. Using the book id, we can now download the book by passing the id to the `gutenberg_download()` function:
+
+```{r}
+#if you need to find a mirror, run this first
+#gutenberg_get_mirror()
+
+gutenberg_get_mirror()
+war_worlds <- gutenberg_download(36, mirror = 'http://aleph.gutenberg.org')
+slice(war_worlds, 1:300)
+```
+
+Here we see the first 100 lines of the work. It seems this particular work is broken down into books and chapters. In order to analyze the work at the line, chapter and book levels, we could add new features to our data to represent these values. 
+  
+Adding new features isn't "text pre-processing" but it is a kind of data preparation that adds useful analytical structures for later
+  
+Regular expressions are handy adding features (and other types of pre-processing), which is one reason we'll look into them:
+```{r}
+war_worlds <- war_worlds %>%
+  mutate(
+    linenumber = row_number(),
+    chapter = cumsum(str_detect(
+      text, regex("^[IVX]*\\.$", ignore_case = FALSE)
+    )),
+    book = cumsum(str_detect(
+      text, regex("^BOOK [\\w]", ignore_case = FALSE)
+    ))
+  ) 
+slice(war_worlds, 1:300)
+
+```
+
+**Question:** Can you explain what is happening here?
+
+The `gutenberg_download()` function does allow us to download more than one book at a time. For example, we can download books *768* and *1260* at the same time:
+
+```{r}
+books <- gutenberg_download(c(768, 1260), 
+                            meta_fields = "title", 
+                            mirror = 'https://gutenberg.pglaf.org/')
+slice(books, 1:10)
+```
+
+Note that this time, we also included an additional argument (`meta_fields = "title"`). This is so that the title of each book is included as a column in the data. Therefore, we can find out what the distinct book titles are:
+
+```{r}
+books %>%
+  distinct(title)
+```
+
+In the previous examples, we searched for books based on the title and/or the book id. What if we don't know the exact title of a book or the book id? In such a case, we again make use of regular expressions and the `string_detect()` functions from the `stringr` package. For example, we could search for works where the author matches "wells" and the book title matches "war":
+
+```{r}
+gutenberg_works() %>%
+  filter(str_detect(str_to_lower(author),"wells")) %>%
+  filter(str_detect(str_to_lower(title), "war")) %>%
+  select(gutenberg_id, title, author)
+```
+
+As you can imagine, we can get very creative with our regular expressions in order to match exactly what we want.
+
+Besides the `gutenberg_works()` function which returns metadata about a work, other commonly used meta-datasets from the `gutenbergr` package include:
+
+##### 1. `gutenberg_subjects`
+We use this dataset to enumerate books from a particular topic or genre:
+
+```{r}
+gutenberg_subjects %>%
+  filter(subject == "Science fiction") %>%
+  slice(1:10)
+```
+
+##### 2. `gutenberg_authors`
+We use this dataset to get information about the author of a work:
+
+```{r}
+gutenberg_authors %>%
+  filter(author == "Austen, Jane") %>%
+  glimpse()
+```
+
+
+**Back to the slides**
+
+
+
+
+
+
+
+
+
+
+
+## Pre-processing and first explorations
+
+### 2. Tokenization
+Before we can analyze unstructured text data, we often need to transform it into structured form through a series of pre-processing steps. One of those steps is tokenization. To illustrate how to tokenize text, let's start with our "favorite" nursery rhyme:
+
+```{r}
+rhyme <-
+  c(
+    "Hey, diddle, diddle,",
+    "The cat and the fiddle,",
+    "The cow jumped over the moon;",
+    "The little dog laughed",
+    "To see such sport,",
+    "And the dish ran away with the spoon."
+  )
+
+rhyme
+```
+
+Before we tokenize the rhyme, let's convert it to a tibble and add a number for each line:
+
+```{r}
+rhyme <- tibble(line=1:6, text = rhyme)
+
+rhyme
+```
+
+Now we are ready to tokenize our text. To do this, we make use of the `unnest_tokens()` function from the `tidytext` package.
+
+```{r}
+library(tidytext)
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words")
+```
+
+Notice that we set `token = "words"`. This specifies the granularity at which we intend to tokenize (words). We could also set `token = "ngrams"` and `n = 2`. This means that we intend to tokenize with bigrams.
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "ngrams", n = 2)
+```
+
+What if we want to use whole sentences as tokens? Easy. We set `token = "sentences"`.
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "sentences")
+```
+
+After we tokenize we can answer simple questions like "how many words?"
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  nrow()
+```
+
+
+Or questions like "how many words per line?"
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  group_by(line) %>%
+  summarize(wordcount = n())
+```
+
+*Counting words can be useful if we care about volume of text. For example, maybe our poems aren't successful and we're worried they are too long for a nursery rhyme. We could check various poems for lengths and see how we fall in the distribution. Maybe we think that longer poems are predictive of poetry books making more money, so we want average poem-length to add to a regression analysis. As soon as you have numbers, you can start doing numbery-things.*
+
+Another approach looks at frequency of words, in which case it's often helpful to remove words that are very common in the language but don't provide a lot of analytical value when trying to understand the content of the text 
+
+### 3. Stop Words
+The `tidytext` package provides a dataset of common stop words. We can use this dataset to remove stop words from our data by using an `anti_join()`. To do this, we first need to import the stop words dictionary into our environment:
+
+```{r}
+data("stop_words")
+stop_words
+```
+
+Then we remove the stop words from our text by using the `anti_join()` function:
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word")
+```
+
+Notice that words like "the" and "and" are now gone.
+
+### 4. Custom Stop Words
+The `tidytext` stop words come from three different lexicons (or dictionaries) - `onix`, `SMART` and `snowball`.
+
+```{r}
+stop_words
+```
+
+We can get the number of words from each lexicon:
+
+```{r}
+stop_words %>%
+  count(lexicon)
+```
+
+We can also create our own list of stop words. For example, let's assume that we want to treat the words "diddle" and "fiddle" as stop words. We start by creating a new stop words dictionary with those two words:
+```{r}
+new_stop_words <- tibble(
+  word = c("diddle", "fiddle"),
+  lexicon = c("custom")
+  )
+new_stop_words
+```
+Then we combine the new dictionary with the existing one to create a new dictionary of stop words called `custom_stop_words`:
+
+```{r}
+custom_stop_words <-
+  bind_rows(new_stop_words, stop_words)
+
+custom_stop_words
+```
+
+We can get a count of the number of words in each lexicon:
+
+```{r}
+custom_stop_words %>%
+  count(lexicon)
+```
+
+And just like we did with the default dictionary, we can use our custom dictionary to remove stop words in our text:
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(custom_stop_words, by = "word")
+```
+
+
+
+### 5. Term Frequency
+To illustrate how to analyze word frequency, let's re-download the text from the book "The War of the Worlds" by HG Wells:
+
+```{r}
+war_worlds <- gutenberg_download(36, mirror = 'https://gutenberg.pglaf.org/')
+war_worlds
+```
+
+Next, we tidy the text, remove stop words and get the frequency of each word in the text:
+
+```{r}
+war_worlds %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(word, sort = TRUE)
+```
+
+Using the word frequency, we can create a simple word cloud of words that occur at least 25 times. We use the `wordcloud2()` function from the `wordcloud2` package for this.
+
+```{r thisone}
+library(wordcloud2)
+war_worlds %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(word) %>%
+  filter(n >= 25) %>% 
+  wordcloud2(size = .5, shape = "circle")
+```
+
+In the previous example, we used word count to represent word frequency for one book. 
+
+What if we want to compare books?  We can examine 4 different HG Wells books with book ids `35`, `36`, `159` and `5230`:
+
+
+```{r}
+hgwells <- gutenberg_download(c(35, 36, 159, 5230), meta_fields = "title", mirror = 'https://gutenberg.pglaf.org/')
+```
+
+What books did we get? Let's find out:
+
+```{r}
+hgwells %>%
+  distinct(title)
+```
+
+Again, let's run counts by let's do it by title
+
+Next let's do some basic word counts. 
+
+```{r}
+hgwells %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(title, word) %>%
+  arrange(title, desc(n))
+```
+
+And then, to simplify a little and prep for more images, we'll pull only the top 40 words for each book.
+```{r}
+hgwells_by_title <- hgwells %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(title, word, name ="wordcount") %>%
+  arrange(title, desc(wordcount)) %>%
+  group_by(title) %>%
+  slice_max(wordcount, n = 40)
+
+```
+
+And we can compare in a table  
+After we do a little finagling to get a nice-looking pivot (since some words share the same count)
+```{r}
+hgwells_by_title %>%
+  mutate(rank = rank(desc(wordcount), ties.method = "min")) %>%
+  unite(col = "word_counter", word, wordcount, sep = ": ") %>%
+  pivot_wider(names_from = title, values_from = word_counter,  
+              values_fn = list(word_counter =  ~ toString(unique(.))))
+```
+
+
+
+Or we can compare in a wordcloud -- let's start with just one book 
+```{r}
+hgwells_by_title %>%
+  filter(title == "The Time Machine") %>% 
+  wordcloud2(size = .5, shape = "circle")
+```
+  
+  
+  
+**Question**: Why does it fail? How can we fix it?
+  
+  
+  
+```{r}
+hgwells_by_title %>%
+  filter(title == "The Time Machine") %>% 
+  wordcloud2(size = .5, shape = "circle")
+
+hgwells_by_title %>%
+  filter(title == "The Invisible Man: A Grotesque Romance") %>% 
+  ungroup() %>%
+  select(-title) %>%
+  wordcloud2(size = .5, shape = "circle")
+
+hgwells_by_title %>%
+  filter(title == "The Island of Doctor Moreau") %>% 
+  ungroup() %>%
+  select(-title) %>%
+  wordcloud2(size = .5, shape = "circle")
+
+hgwells_by_title %>%
+  filter(title == "The War of the Worlds") %>% 
+  ungroup() %>%
+  select(-title) %>%
+  wordcloud2(size = .5, shape = "circle")
+```
+
+
+#### An aside  
+Who wants do to all that copy-paste-repeat?   
+When you can, consider higher-level R functions that let you iterate over subsets of the data.   
+Many of these are found in the `purrr` package.    
+But in this case, since we have a grouped dataframe, we can use an experimental function in `dplyr`
+```{r}
+group_map(hgwells_by_title, wordcloud2, size = .5, shape = "circle")
+```
+
+Nice, right?
+  
+If you want to combine wordclouds with the ecosystem of ggplot2 (for example: to facet!)
+check out the [ggwordcloud package](https://cran.r-project.org/web/packages/ggwordcloud/index.html) and [vignette](https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html)
+
+If you want to show multiple plots at the same time with better control over placement
+check out the [gridExtra package](https://cran.r-project.org/web/packages/gridExtra/index.html) and  [vignette](https://cran.r-project.org/web/packages/gridExtra/vignettes/arrangeGrob.html)
+  
+**Question:** What are some other ways we could visualize this information?
+
+  
+Remember from Visualization classes some ways to show frequencies, like bar charts and distribution charts.
+Let's go back to our rhyme to keep it simple
+```{r}
+#This is not pretty, but we could clean it up by rotating, sorting, etc
+rhyme %>% 
+  unnest_tokens(output = "word", input = "text", token = "words") %>%
+  ggplot(aes(x = word)) +
+  geom_bar()
+```
+
+What about a cumulative distribution?  We can do this with counts or by frequency (percents)
+Here is one way to do it with counts
+```{r}
+#This graph also could use some cleanup
+
+#This style of plot also needs a little more prep work, like...
+#establishing counts
+#setting up a cumulative count (in order) for the y-values
+#setting up a grouping column for the x-values 
+#  (otherwise, a line graph won't render, because x is categorical)
+rhyme %>% 
+  unnest_tokens(output = "word", input = "text", token = "words") %>%
+  count(word, name = "wordcount") %>% 
+  arrange(desc(wordcount)) %>%
+  mutate(cumulative = cumsum(wordcount),
+         title = "rhyme") %>% #this is my grouping variable
+  ggplot(aes(x = reorder(word, desc(wordcount)), 
+             y = cumulative, group = title)) +
+  #geom_point() +
+  geom_line() +
+  scale_y_continuous(limits = c(0,30))
+```
+
+Here is one way to do it with percents
+Empirical Cumulative Distribution
+```{r}
+#get wordcounts, put in order
+rhyme_counts <- rhyme %>% 
+  unnest_tokens(output = "word", input = "text", token = "words") %>%
+  mutate(title = "rhyme") %>%
+  count(word, name = "wordcount") %>%
+  arrange(desc(wordcount), word) %>%
+  mutate(count_order = row_number())
+
+#apply back to the regular dataframe
+rhyme %>%
+  unnest_tokens(output = "word", input = "text", token = "words") %>%
+  left_join(rhyme_counts, by = "word") %>%
+  mutate(title = "rhyme") %>%
+  ggplot(aes(x = reorder(word, count_order), group = "title")) +
+  stat_ecdf(geom = "line")
+```

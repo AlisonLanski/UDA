@@ -1,0 +1,310 @@
+---
+title: "Regular Expressions & TF-IDF"
+author: "Unstructured Data Analytics (MSBA 70450)"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+In this exercise, we will make use of the `tidyverse` and `stringr` packages. Install and load these packages as needed.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+```
+
+### 1. Basic Matches
+To illustrate how to do very easy matches using regular expressions, we start by creating a vector of strings to work with.
+
+```{r}
+strings <- c("apple", "banana", "pear")
+```
+
+Next, we specify the pattern that we intend to match.
+
+```{r}
+pattern <- "an"
+```
+
+Now, we can pass both the string vector and pattern to the `str_subset()` function to see which strings match the pattern we specified.
+
+```{r}
+str_subset(strings, pattern)
+```
+
+Another way to write this is to pass the pattern to the `regex()` function:
+
+```{r}
+str_subset(strings, regex(pattern))
+```
+
+The `regex()` function provides us with more fine-grained control over the pattern that we're trying to match. To illustrate the usefulness of the `regex()` function, let's work through another example. This time, let's create a different vector of strings for the word "banana" but in different case combinations.
+
+```{r}
+strings <- c("banana", "Banana", "BANANA")
+pattern <- "an"
+str_subset(strings, pattern)
+```
+
+Notice that the word "`BANANA`" was not matched. This is because, the pattern matching process is case-sensitive. To make it non case-sensitive, we set `ignore_case = TRUE` within the `regex()` function. 
+
+```{r}
+pattern <- regex("an", ignore_case = TRUE)
+str_subset(strings, pattern)
+```
+
+This time, we match "`BANANA`" as well.
+
+### 2. Anchors
+We use anchors to match words that start or stop with a pattern. For example, we can match strings that start with an '`a`':
+
+```{r}
+strings <- c("apple", "banana", "pear")
+pattern <- "^a"
+str_subset(strings, pattern)
+```
+
+We can also match strings that end with an '`a`':
+
+```{r}
+strings <- c("apple", "banana", "pear")
+pattern <- "a$"
+str_subset(strings, pattern)
+```
+
+Anchors can also be used to enforce exact string matches. For example, to match the word "`apple`" exactly, we could try using the word as the pattern:
+
+```{r}
+strings <- c("apple pie", "apple", "apple cake")
+pattern <- "apple"
+str_subset(strings, pattern)
+```
+
+However, we see that both "`apple pie`" and "`apple cake`" were also matched. To match just "`apple`", we have to use anchors:
+
+```{r}
+strings <- c("apple pie", "apple", "apple cake")
+pattern <- "^apple$"
+str_subset(strings, pattern)
+```
+
+### 3. Repetitions
+Sometimes, we do want to match repeating patterns. For example, we can match words with one or more occurrences of the letter '`p`':
+
+```{r}
+strings <- c("apple", "banana", "pear")
+pattern <- "p+"
+str_subset(strings, pattern)
+```
+
+Or, we can match words with zero or more occurrences of the letter '`p`':
+
+```{r}
+strings <- c("apple", "banana", "pear")
+pattern <- "p*"
+str_subset(strings, pattern)
+```
+
+We can also match words with two to three occurrences of the letter '`p`':
+
+```{r}
+strings <- c("apple", "banana", "pear", "pineapple")
+pattern <- "p{2,3}"
+str_subset(strings, pattern)
+```
+
+### 4. Operators
+Regular expressions support several types of operators. The `.` operator allows us to match any character within a string. For example, we can match words that have the letter '`e`' and anything after:
+
+```{r}
+strings <- c("apple", "banana", "pear")
+pattern <- "e."
+str_subset(strings, pattern)
+```
+
+**Question:** Why wasn't "`apple`" matched? What do we need to change in our pattern in order to match it as well?
+
+The `stringr` package has 3 built-in practice datasets - `sentences`, `fruit` and `words`. We can use them to practice working with regular expressions. For example, instead of building our own vector of strings, we can build one using the `fruit` dataset as follows:
+
+```{r}
+fruit_set <- fruit
+fruit_set
+```
+
+Using the `fruit` dataset, let's match all fruits with the letters '`w`', '`x`', '`y`' or '`z`'. This time, we use the square bracket operators :
+
+```{r}
+pattern <- "[w-z]"
+str_subset(fruit_set, pattern)
+```
+
+What if we want to match all fruits without the letters '`a`', '`b`' and '`c`'?:
+
+```{r}
+pattern <- "[^a-c]"
+str_subset(fruit_set, pattern)
+```
+
+That didn't do what we wanted. Let's try this instead:
+
+```{r}
+pattern <- "^[^a-c]*[^a-c]$"
+str_subset(fruit_set, pattern)
+```
+
+**Question:** Can you explain what's going on here and why this example worked while the other didn't?
+
+### 5. Escape Sequences
+Now, let's look at some special cases where we need to match special characters. For example, we know that the period is an operator, so how do we match a word that has a period ("`.`")? 
+
+You got it! We use an escape character ("`\`"):
+
+```{r error=TRUE}
+strings <- c("a.b.c.d", "aeb")
+pattern <- "\."
+str_subset(strings, pattern)
+```
+
+Oops! We need to escape the escape. This is what we meant to write:
+
+```{r error=FALSE}
+pattern <- "\\."
+str_subset(strings, pattern)
+```
+
+That's more like it. In fact, it's good practice to always use the `\\` approach to escape special characters. For example, we can match words that have the special character "`'`" as follows:
+
+```{r}
+strings <- c("United States", "Nigeria", "Brazil", "Cote d'Ivoire", "Russia")
+pattern <- "\\'"
+str_subset(strings, pattern)
+```
+
+An odd example is when we want to match words that have the back slash ("\\") special character.
+
+```{r}
+strings <- c("a.b.c.d", "aeb", "a\\b")
+pattern <- "\\\\"
+str_subset(strings, pattern)
+```
+
+Notice that we defined the back slash ("\\") special character using two back slashes. This is because we escape the character itself. Therefore, when matching for it, we match for the double back slash. To help us understand this better, let's see what is actually stored in the `strings` object by using the `writeLines()` function:
+
+```{r}
+writeLines(strings)
+```
+
+### 6. Character Classes
+Instead of specifying individual characters to match, we can also use character classes. For example, we can match all words in the `words` dataset that have an upper case letter:
+
+```{r}
+words_set <- words
+pattern <- "[[:upper:]]"
+str_subset(words_set, pattern)
+```
+
+We could also match all words in the `fruit` dataset that have a white space:
+
+```{r}
+fruit_set <- fruit
+pattern <- "\\s"
+str_subset(fruit_set, pattern)
+```
+
+### 7. Groupings and Backreferences
+We can use parentheses to group regular expression logic. This allows us to override the default precedence rules. For example, let's say that we want to match words that are spelled as either "`grey`" or "`gray`": 
+
+```{r}
+strings <- c("grey", "day", "gray", "today")
+pattern <- "gre|ay"
+str_subset(strings, pattern)
+```
+
+This doesn't quite give us what we want. This is what we meant to write (using groupings):
+
+```{r}
+strings <- c("grey", "day", "gray", "today")
+pattern <- "gr(e|a)y"
+str_subset(strings, pattern)
+```
+
+Parentheses are also used for what is known as backreferencing. For example, we can match fruits with repeated pairs of letters in the name:
+
+```{r}
+fruit_set <- fruit
+pattern <- "(..)\\1"
+str_subset(fruit_set, pattern)
+```
+
+**Question:** Can you explain what's going on here?
+
+
+-------------------------------------------------------------------
+#From Fred's EB03
+
+---------------------------------------------------------------------------------------
+Last week we looked at simple word counts, for example, from HG Wells' books.
+Remember all of this startup?
+
+```{r}
+
+```
+
+NGRAMS
+VS
+KWIC
+
+```{r}
+war_worlds %>%
+  unnest_tokens(output = paragraph, input = text, token = "paragraphs") %>%
+  mutate(kwik = str_extract(string = paragraph, pattern = "(\\w+\\W+){0,5}and(\\W+\\w+){0,5}"))
+```
+
+Instead of simple word count, let's take a look at term frequency - inverse document frequency (tf-idf). To illustrate this, we're going to consider four different books by HG Wells with book ids `35`, `36`, `159` and `5230`:
+
+Next, we get the `tf-idf` for the words in each book. We do this by using the `bind_tf_idf()` function from the `tidytext` package.
+
+```{r}
+hgwells %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(title, word) %>%
+  bind_tf_idf(word, title, n) %>%
+  arrange(desc(tf))
+```
+
+**Question:** What does it mean for a word to have a tf-idf value of zero?
+
+Finally, let's visualize the top 10 words from each book by tf-idf:
+
+```{r fig.height=10, fig.width=10}
+hgwells %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(title, word) %>%
+  bind_tf_idf(word, title, n) %>%
+  group_by(title) %>%
+  top_n(10, tf_idf) %>%
+  ungroup() %>%
+  ggplot(mapping = aes(x = reorder_within(word, tf_idf, title), y = tf_idf, fill = title)) +
+  geom_col() +
+  labs(x = "word", y = "tf_idf") +
+  facet_wrap(~title, ncol = 2, scales = "free") +
+  coord_flip() +
+  scale_x_reordered() +
+  theme_minimal()
+```
+
+**Question:** If you didn't have the book titles, could you tell which words belonged to which book simply based on the charts?
+
+

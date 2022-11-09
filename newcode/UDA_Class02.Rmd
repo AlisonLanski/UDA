@@ -1,0 +1,255 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics"
+output:
+  pdf_document: null
+  toc: yes
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Preliminaries'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+```
+
+### 1. Project Gutenberg
+The `gutenbergr` package provides several functions that allow us to import public domain books from Project Gutenberg (www.gutenberg.org).
+
+
+```{r}
+library(gutenbergr)
+```
+
+In order to import a book, we first need the book id. However, if we do not know the book id, we can search for it by title. The `gutenberg_works()` function provides us with metadata about each of the works in the library. For example, we can get metadata about "The War of the Worlds":
+  
+```{r}
+gutenberg_works() %>%
+  filter(title == "The War of the Worlds") %>%
+  glimpse()
+```
+
+From the metadata, we get the book id, title, author, etc. Using the book id, we can now download the book by passing the id to the `gutenberg_download()` function:
+  
+```{r}
+#if you need to find a mirror, run this first
+#gutenberg_get_mirror()
+war_worlds <- gutenberg_download(36, mirror = 'http://aleph.gutenberg.org')
+slice(war_worlds, 1:300)
+```
+
+Here we see the first 300 lines of the work. It seems this particular work is broken down into books and chapters. In order to analyze the work at the line, chapter and book levels, we could add new features to our data to represent these values. 
+
+Adding new features isn't "text pre-processing" but it is a kind of data preparation that adds useful analytical structures for later
+  
+Regular expressions are handy adding features (and other types of pre-processing), which is one reason we'll look into them:
+```{r}
+war_worlds <- war_worlds %>%
+  mutate(
+    linenumber = row_number(),
+    chapter = cumsum(str_detect(
+      text, regex("^[IVX]*\\.$", ignore_case = FALSE)
+    )),
+    book = cumsum(str_detect(
+      text, regex("^BOOK [\\w]", ignore_case = FALSE)
+    ))
+  ) 
+slice(war_worlds, 1:300)
+
+```
+
+**Question:** Can you explain what is happening here? 
+  
+  The `gutenberg_download()` function does allow us to download more than one book at a time. For example, we can download books *768* and *1260* at the same time:
+  
+```{r}
+books <- gutenberg_download(c(768, 1260), 
+                            meta_fields = "title", 
+                            mirror = 'https://gutenberg.pglaf.org/')
+slice(books, 1:10)
+```
+
+Note that this time, we also included an additional argument (`meta_fields = "title"`). This is so that the title of each book is included as a column in the data. Therefore, we can find out what the distinct book titles are:
+  
+```{r}
+books %>%
+  distinct(title)
+```
+
+In the previous examples, we searched for books based on the title and/or the book id. What if we don't know the exact title of a book or the book id? In such a case, we again make use of regular expressions and the `string_detect()` functions from the `stringr` package. For example, we could search for works where the author matches "wells" and the book title matches "war":
+
+```{r}
+gutenberg_works() %>%
+  filter(str_detect(str_to_lower(author),"wells")) %>%
+  filter(str_detect(str_to_lower(title), "war")) %>%
+  select(gutenberg_id, title, author)
+```
+
+As you can imagine, we can get very creative with our regular expressions in order to match exactly what we want.
+
+Besides the `gutenberg_works()` function which returns metadata about a work, other commonly used meta-datasets from the `gutenbergr` package include:
+
+##### 1. `gutenberg_subjects`
+We use this dataset to enumerate books from a particular topic or genre:
+
+```{r}
+gutenberg_subjects %>%
+  filter(subject == "Science fiction") %>%
+  slice(1:10)
+```
+
+##### 2. `gutenberg_authors`
+We use this dataset to get information about the author of a work:
+
+```{r}
+gutenberg_authors %>%
+  filter(author == "Austen, Jane") %>%
+  glimpse()
+```
+
+
+
+## Pre-processing and first explorations
+
+### 2. Tokenization
+Before we can analyze unstructured text data, we often need to transform it into structured form through a series of pre-processing steps. One of those steps is tokenization. To illustrate how to tokenize text, let's start with our "favorite" nursery rhyme:
+  
+```{r}
+rhyme <-
+  c(
+    "Hey, diddle, diddle,",
+    "The cat and the fiddle,",
+    "The cow jumped over the moon;",
+    "The little dog laughed",
+    "To see such sport,",
+    "And the dish ran away with the spoon."
+  )
+
+rhyme
+```
+
+Before we tokenize the rhyme, let's convert it to a tibble and add a number for each line:
+
+```{r}
+rhyme <- tibble(line=1:6, text = rhyme)
+
+rhyme
+```
+
+Now we are ready to tokenize our text. To do this, we make use of the `unnest_tokens()` function from the `tidytext` package.
+
+```{r}
+library(tidytext)
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words")
+```
+
+Notice that we set `token = "words"`. This specifies the granularity at which we intend to tokenize (words). We could also set `token = "ngrams"` and `n = 2`. This means that we intend to tokenize with bigrams.
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "ngrams", n = 2)
+```
+
+What if we want to use whole sentences as tokens? Easy. We set `token = "sentences"`.
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "sentences")
+```
+
+After we tokenize we can answer simple questions like "how many words?"
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  nrow()
+```
+
+
+Or questions like "how many words per line?"
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  group_by(line) %>%
+  summarize(wordcount = n())
+```
+
+*Counting words can be useful if we care about volume of text. For example, maybe our poems aren't successful and we're worried they are too long for a nursery rhyme. We could check various poems for lengths and see how we fall in the distribution. Maybe we think that longer poems are predictive of poetry books making more money, so we want average poem-length to add to a regression analysis. As soon as you have numbers, you can start doing numbery-things.*
+
+Another approach looks at frequency of words, in which case it's often helpful to remove words that are very common in the language but don't provide a lot of analytical value when trying to understand the content of the text 
+
+### 3. Stop Words
+The `tidytext` package provides a dataset of common stop words. We can use this dataset to remove stop words from our data by using an `anti_join()`. To do this, we first need to import the stop words dictionary into our environment:
+
+```{r}
+data("stop_words")
+stop_words
+```
+
+Then we remove the stop words from our text by using the `anti_join()` function:
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word")
+```
+
+Notice that words like "the" and "and" are now gone.
+
+### 4. Custom Stop Words
+The `tidytext` stop words come from three different lexicons (or dictionaries) - `onix`, `SMART` and `snowball`.
+
+```{r}
+stop_words
+```
+
+We can get the number of words from each lexicon:
+
+```{r}
+stop_words %>%
+  count(lexicon)
+```
+
+We can also create our own list of stop words. For example, let's assume that we want to treat the words "diddle" and "fiddle" as stop words. We start by creating a new stop words dictionary with those two words:
+```{r}
+new_stop_words <- tibble(
+  word = c("diddle", "fiddle"),
+  lexicon = c("custom")
+)
+new_stop_words
+```
+Then we combine the new dictionary with the existing one to create a new dictionary of stop words called `custom_stop_words`:
+  
+```{r}
+custom_stop_words <-
+  bind_rows(new_stop_words, stop_words)
+
+custom_stop_words
+```
+
+We can get a count of the number of words in each lexicon:
+  
+```{r}
+custom_stop_words %>%
+  count(lexicon)
+```
+
+And just like we did with the default dictionary, we can use our custom dictionary to remove stop words in our text:
+  
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(custom_stop_words, by = "word")
+```
+

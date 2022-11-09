@@ -1,0 +1,143 @@
+---
+title: "Sentiment Analysis (Word Level)"
+author: "Unstructured Data Analytics (UDA)"
+
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+In this exercise, we will make use of the `tidyverse`, `tidytext` and `textdata` packages. Install and load these packages as needed.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(tidytext)
+library(textdata)
+```
+
+### 1. The Word-level Sentiment Lexicons
+The `get_sentiments()` function from the `tidytext` package allows us to access the built-in `bing` sentiment lexicon as well as others provided through the `textdata` package.
+
+To get the `bing` sentiment lexicon, we pass the lexicon name to the `get_sentiments()` function.
+
+```{r}
+get_sentiments("bing")
+```
+
+We can do the same for the `afinn` sentiment lexicon (Note that you will need to answer "Yes" in the console by typing "1" in order for this lexicon and others like it to be downloaded).
+
+```{r}
+get_sentiments("afinn")
+```
+
+Notice the difference in the way the data is represented between these two lexicons? Let's get a count of the tokens from all four sentiment lexicons to get a big picture view of how they compare to each other.
+
+```{r}
+get_sentiments("bing") %>%
+  count(sentiment)
+
+get_sentiments("afinn") %>%
+  count(value)
+
+get_sentiments("nrc") %>%
+  count(sentiment)
+
+get_sentiments("loughran") %>%
+  count(sentiment)
+```
+
+**Question:** What differences do you notice among the four lexicons?
+
+### 2. Word-level Sentiment Analysis
+
+To illustrate how word-level sentiment analysis works, let's begin with a very simple example.
+
+```{r}
+statement <- "This is amazing. The weather is wonderful today"
+statement
+```
+
+The first thing we need to do with our text is convert it into a tibble and then tokenize by word (this should be familiar to you).
+
+```{r}
+tokens <- tibble(text = statement) %>% 
+  unnest_tokens(output = word, input = text, "words")
+tokens
+```
+
+Next, we join our tokenized data with the `bing` sentiment lexicon.
+
+```{r}
+tokens %>%
+  inner_join(get_sentiments("bing"), by = "word")
+```
+
+Of the 8 words in our text, only 2 of them exist in the `bing` sentiment lexicon.
+
+Finally, we get a sum of the words by sentiment to determine if the text is mostly positive or mostly negative.
+
+```{r}
+tokens %>%
+  inner_join(get_sentiments("bing"), by = "word") %>%
+  count(sentiment)
+```
+
+As you can see, based on the `bing` sentiment lexicon, our sentence is considered positive.
+
+
+Let's try another example with a few more words.
+
+```{r}
+statement <- c("I have a few thoughts about the ITAO major.", 
+               "I dislike programming in general.",
+               "However, I really do like R.",
+               "I do kind of love machine learning.")
+
+tokens <- tibble(text = statement) %>% 
+  unnest_tokens(output = word, input = text)
+
+tokens %>%
+  inner_join(get_sentiments("bing"), by = "word") 
+```
+
+This time, let's use the `pivot_wider()` command to pivot our data so we can subtract the negative sentiment count from the positive sentiment count.
+
+```{r}
+tokens %>%
+  inner_join(get_sentiments("bing"), by = "word") %>%
+  count(sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>%
+  mutate(sentiment = positive - negative)
+```
+
+The sentiment score is positive, therefore the entire text has a positive sentiment.
+
+What if we used the `nrc` lexicon?
+
+```{r}
+tokens %>%
+  inner_join(get_sentiments("nrc"), by = "word") %>%
+  count(sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>%
+  mutate(sentiment = positive - negative)
+```
+
+The sentiment score is also positive with the `nrc` lexicon. 
+
+**Question:** Why did we get different sentiment scores between the `bing` and `nrc` lexicons?
+
+A closer look at the results show that we have one negative word and four positive words. Let's see what these words are.
+
+```{r}
+tokens %>%
+  inner_join(get_sentiments("nrc"), by = "word") %>%
+  filter(sentiment %in% c("positive","negative"))
+```
