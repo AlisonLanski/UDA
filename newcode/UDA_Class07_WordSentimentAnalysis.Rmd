@@ -1,0 +1,226 @@
+---
+title: "Sentiment Analysis (Word to Sentence Level)"
+author: "Unstructured Data Analytics (UDA)"
+
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#load packages
+library(dplyr)
+library(stringr)
+library(tidytext)
+library(textdata)
+library(ggplot2)
+```
+
+## Start simple
+Let's look at a short example.
+First let's do regular bag of words sentiment, and aggregate by sentence.
+```{r}
+corpus <- tibble(sentences = c("I like chocolate",
+                                  "I really like chocolate",
+                                  "I don't like chocolate",
+                                  "I hardly like chocolate",
+                                  "I love vanilla, but I don't like chocolate"),
+                    sentence_id = 1:5)
+
+#tokenize, add sentiment scoring, aggregate
+corpus %>%
+  unnest_tokens(output = word, input = sentences, token = "words") %>%
+  inner_join(get_sentiments("afinn"), by = "word") %>%
+  group_by(sentence_id) %>%
+  summarize(afinn_total = sum(value, na.rm = T),
+            afinn_avg = mean(value, na.rm = T)) %>%
+  #add the original sentences back in so we can compare
+  inner_join(corpus, by = "sentence_id")
+```
+
+**Question:** does this match how you want to understand the sentences?
+
+Let's try a sentence-level breakout
+```{r}
+library(sentimentr) #you may need to install this package
+corpus %>% 
+  get_sentences() %>%
+  sentiment() %>%
+  #rearrange columns for better viewing 
+  select(element_id, sentences, sentiment, word_count, everything())
+```
+
+**Question**: do you like this better?
+
+The sentiment function automatically uses the lexicon::hash_sentiment_jockers_rinkers to assign polarity, and the valence_shifter lexicon::hash_valence_shifters to handle valence.  
+  
+You can adjust which lexicons/shifters are used and how much they affect the output by changing the arguments for the function.
+  
+Run `?sentiment` to open the help page.  The *Usage* section shows all of the arguments with any default values. The *Arguments* section provides more details. The *Value* section explains what is returned and the *Examples* section at the end shows sample code you can run and experiment with.
+  
+Try running the sentiment again, but adjust something and compare to what you got above.
+```{r}
+corpus %>% 
+  get_sentences() %>%
+  sentiment() %>%  #add some arguments within the sentiment() call to change the defaults
+  select(element_id, sentences, sentiment, word_count, everything())
+```
+
+
+
+## Small scale to bigger scale: sentence-level or chapter-level sentiment in Alice
+
+The first challenge is getting the text to be analyzable by sentence.
+```{r}
+#########
+# basic setup
+#########
+
+#load package
+library(gutenbergr)
+
+#download, add chapters, remove title matter, 
+alice <- gutenberg_download(11) %>% 
+  mutate(chapter = cumsum(str_detect(text, pattern = "^CHAPTER [IVX]+\\.*$"))) %>%
+  filter(chapter > 0) %>%
+  select(-gutenberg_id) #this is just in the way; we don't need it for 1 book
+
+
+#########
+#prep for sentence analysis
+########
+
+#note: you can group_by and mutate to create new fields on a group-by-group basis
+#it will add values to each row, unless you summarize in some way
+#we aren't summarizing here
+alice_long <- alice %>% 
+  group_by(chapter) %>%
+  mutate(long_text = paste(text, collapse = " ")) %>%
+  ungroup() %>%
+  select(long_text, chapter) %>%
+  distinct()
+
+#check it
+alice_long[1,]
+```
+
+Can you break this into sentences, number the sentences with a sentence_id, and tokenize the sentences by word, and create an AFINN sentiment score sentence-by-sentence or chapter-by-chapter?
+Fill in the ?? with the right code or column names
+```{r}
+#break it into sentences
+alice_sentences <-alice_long %>%
+  unnest_tokens(output = ??, input = ??, token = "??") %>%
+  mutate(sentence_id = row_number())
+
+#break sentences into words
+alice_words <- alice_sentences %>%
+  unnest_tokens(output = ??, input = ??, token = "words")
+
+#add sentiments
+alice_words_sentiments <- alice_words %>%
+  inner_join(??)
+
+#aggregate scores
+alice_summized <- alice_words_sentiments %>%
+  group_by(??) %>%
+  summarize(??) %>%
+  ungroup()
+
+#take a look
+alice_summarized[1:5,]
+```
+
+Let's graph it too -- add your column names in place of ??
+```{r}
+#prep the data again
+#set up a polarity flag so we can use it for color
+alice_summarized %>%
+  #add a polarity flag
+  mutate(polarity = ifelse(?? > 0, "positive", "negative"))
+
+  #feed it into a basic bar graph
+  ggplot(aes(x = ??grouping??, y = ??score??, fill = polarity)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Afinn polarity of Alice in Wonderland by ??")
+
+```
+
+
+*Question* What do you notice about this?  Does it line up at all with the common words you analyzed previously or the plot summary you read?
+
+**Question:** If you break it out by chapter vs sentences, do you get a different impression of the book? 
+
+We could adjust our results by trying different sentiment lexicons at the chapter vs sentence level.  
+
+But let's see how valence affects our answers  
+
+## Alice with sentimentr
+
+Start again with the chapter-in-a-cell text, and see how this tokenizes
+```{r}
+library(sentimentr)
+alice_sentences_new <- get_sentences(alice_long)
+
+#check it
+alice_sentences_new[1:10,]
+```
+
+Now let's add some sentiment and aggregate
+
+```{r}
+#let's add a sentiment scores for some level: chapters or sentences
+#method 1:
+alice_sentences_new %>%
+  sentiment() %>%
+  group_by(??) %>%
+  summarize(??)
+
+#method 2:
+alice_sentences_new %>%
+  sentiment_by(by = "??")
+```
+**Question:** do these end up the same or with a similar message?
+To see the options for sentiment_by, look at the help page `?sentiment_by`
+
+**Question:** what preprocessing is done by the get_sentences function?
+
+**Question:** Does the valence and lexicon in sentimentr give you a result that works better than straight bag-of-words methods?
+
+### FYI
+SentimentAnalysis is an even newer package that has been released
+
+We aren't going to spend time on it together, but you can explore it through [CRAN](https://cran.r-project.org/web/packages/SentimentAnalysis/index.html). The vignette page is a good place to start.  
+
+If you want to install and mess around with it, start with our basic corpus sentences
+```{r}
+#load the package (you probably have to install it)
+library(SentimentAnalysis)
+
+# SentimentAnalysis likes to work with vectors, not data frames
+# It can also accept a DTM or a topic modeling object 
+# For today, we can convert a column into a string vector
+corpus_vector <- corpus %>% pull(sentences)
+sentiment <- analyzeSentiment(corpus_vector)
+
+#what do we get out?
+sentiment
+```
+What were the sentences?
+```{r}
+corpus
+```
+
+Whoa, that's a lot of output. What does it mean? What can we do with it?
+Let's check the documentation again.  
+
+**Question:** Does this package seem useful? What might it be helpful for compared to the other two packages?
+
