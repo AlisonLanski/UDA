@@ -1,0 +1,188 @@
+---
+title: "Scraping from HTML Tables"
+author: "Unstructured Data Analytics (UDA)"
+
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+When we are scraping data, our goal isn't necessarily to take what isn't ours; instead, we are just trying to make good use of available data. We are going to focus on a very simple application today.
+
+Just keep in mind that our potential goals are very broad: we could be scraping clients/leads, "pure" data, or something along the lines of pure text. 
+
+## Broad Rules
+
+1. Only scrape something once.
+
+2. Save as needed.
+
+3. Only scrape what you need.
+
+4. ToS are real.
+
+5. What works today, won't work tomorrow.
+
+## HTML Elements
+
+Since we are scraping data, you will need to know some basic HTML elements. 
+
+```{r, echo=FALSE}
+library(magrittr)
+data.frame(element = c("a", "h1-h6", "li", "p", "span", 
+                       "table", "td", "th", "tr")) %>% 
+  knitr::kable()
+```
+
+For a complete list, you can check <a href="https://www.w3schools.com/TAGS/default.ASP">w3schools</a>.
+
+## Tables: Learn
+
+The most simple form of all scraping is the html table -- it has always been easy and it will always be easy. You don't need to know much in the way of fancy code, just that you are dealing with an html table:
+
+```{r}
+#we need packages and pipes
+library(rvest)  #rvest is a packaged designed for scraping
+library(magrittr)
+
+#we need a link to scrape from 
+cpiLink <- "https://www.usinflationcalculator.com/inflation/consumer-price-index-and-annual-percent-changes-from-1913-to-2008/"
+
+#we need to pull what we want from the HTML
+#first we read in the code from the link
+cpiTable <- read_html(cpiLink) %>% 
+  #then we pull in the table elements as a list
+  html_table(header = TRUE) %>% 
+  #then we select the particular list item we want, and return it as a tibble.  
+  #The (1) is the list index
+  `[[`(1)
+```
+
+When we use the html_table function, it gets a list of every table on the page, whether it is 1 or 100 tables. The extraction is great when you know which table you want and the indexed order of it will never change. However, you might run into the case where it does change. 
+
+Let's see what we might be able to do to program around that.
+
+```{r}
+topFilms <- "https://en.wikipedia.org/wiki/List_of_highest-grossing_films"
+
+topFilmsRead <- read_html(topFilms)
+
+table_number <- 
+  topFilmsRead %>% 
+  html_nodes("table") %>%
+  grepl(">Highest-grossing films<", .) %>% 
+  which(. == TRUE)
+
+topFilmsRead %>% 
+  html_table() %>% 
+  `[[`(table_number)
+```
+
+And here is something very similar:
+
+```{r}
+tax_read <- read_html("https://taxfoundation.org/publications/corporate-tax-rates-around-the-world/")
+
+tables <- tax_read %>% 
+  html_elements("table")
+
+tables[which(grepl("Highest", tables))] %>% 
+  html_table() %>% 
+  `[[`(1)
+```
+
+### Suggestion  
+When you can, search for the table name.  
+Next best is a distinctive column header.  
+Last option is a piece of data within the table that is unlikely to change.  
+
+#### Note
+Scraping gets a lot more complicated, for example, if you need to pull from other HTML elements (that aren't tables) or you need to pull things with CSS selectors.  
+  
+The next level is working through interactive sessions, where you are filling out search forms and sending them through R to pull back results.
+
+The "simple" method is to work with APIs which are dedicated connection to request often nicely-packaged data.  To work with APIs you often need specific connection information and an identification key to make the request.  
+
+## Tables: Practice    
+
+Read in the "Five Timers Club" table from this site.  
+Who has the most total appearances as host?  
+```{r}
+"https://en.wikipedia.org/wiki/List_of_Saturday_Night_Live_guests"
+```
+
+## Tables: Challenge - Assignment #3  
+
+### The Idea
+
+We're going to create a corpus based on TV episode information that could be used for a new text analysis. For the first part of this assignment, each of you will create a corpus as a csv file, then *upload that csv file to canvas*.
+It's fine to work with other people, but you'll **each** need to submit a *distinct file with different data* (for example, choose different seasons of the same TV show).  
+  
+Copy your *prep code* into a standalone pdf file and submit that on canvas also.  I don't want HTML files because we don't want to keep pulling down data repeatedly via knitting. Include the code starting from the url down to your file write-out.  
+  
+Do **NOT** include the sample code from class (above in this document)
+  
+Again, that's TWO (2) deliverables for Canvas  
+  
+1. **Assignment #3 - Data**: The CSV with your final data pull  
+2. **Assignment #3 - Code**: A PDF with your prep code shown so I can see your process.
+
+### Specific Instructions
+
+Find the wikipedia page for "List of (your favorite tv show) episodes, Season (one season only)" Here's an example page for <a href="https://en.wikipedia.org/wiki/The_Office_(American_season_1)">The Office, Season 1</a>.  You'll see it has a table of episodes that include lines of description.  
+
+Your task is to:  
+
+1. Select a page like this
+2. Read in the table of episodes with descriptions
+3. Pivot the data so the description is in its own column instead of in a separate row (use any method, pivoting is one option)
+4. Remove html footnote tags and other extra/useless text elements.  For example "Dwight[16]" should end up as "Dwight".  Look at the data to figure out what to remove.
+5. Get the cleaned data into the requested format of columns (see below) 
+6. Save a CSV with the following columns of data, in this order (see below)
+    + Genre (You will have to add this: Use the item below that fits the best)
+        + Comedy
+        + Drama
+        + SciFi
+        + Fantasy
+        + Kids
+        + Documentary
+        + Reality
+        + Competition
+        + Sports
+        + News
+    + Show (Title of the show: you will have to add this)
+    + Season (Integer season number: you will have to add this, based on the season you select)
+    + Overall (Integer episode No. Overall: from the wikipedia table)
+    + Title (The episode title: from the wikipedia table)
+    + Viewers (The number of US viewers in millions, if available, NA if not: from the wikipedia table)
+    + Description (From the rearranged table, with special characters/symbols etc removed)  
+  
+A manually-created example, looking at the Office, Season 1 page.  
+```{r, echo = FALSE}
+data.frame(genre = "Comedy",
+           show = "The Office",
+           season = "1",
+           overall = "1",  
+           title = "Pilot", 
+           viewers = "11.20", 
+           description = "A documentary crew arrives at the Scranton, Pennsylvania, offices of Dunder Mifflin to observe the employees and learn about modern management. Regional manager Michael Scott (Steve Carell) tries to paint a happy picture in the face of potential downsizing from corporate. The office also gets new employee Ryan Howard (B. J. Novak) as a temporary worker, while salesman Jim Halpert (John Krasinski) pranks and antagonizes fellow salesman Dwight Schrute (Rainn Wilson), much to the enjoyment of receptionist Pam Beesly (Jenna Fischer).")
+```
+
+Here is sample code for saving out a csv.
+```{r, eval=FALSE}
+readr::write_csv(x = final_data, path = "/Downloads/episodelist.csv")
+```
+
+### Your Turn!
+```{r}
+
+```
+

@@ -1,0 +1,197 @@
+---
+title: "UDA Quiz 1 Solutions"
+date: '2022-11-12'
+
+output: 
+  html_document:
+    toc: false
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+A summary of answers is below
+
+## Regex [15]
+Setup: load packages and establish testing strings
+```{r, message = FALSE, warning = FALSE}
+library(stringr)
+
+nn <- c("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+pp <- c("apple", "pumpkin", "please", "pull", "spine", "tricep")
+ss <- c("mississippi", "louisiana", "arkansas", "alaska", "tennessee")
+ee <- c("nd@nd.edu", "nd@ndfedu", "irish@nd.edu", 
+        "file.csv", "file!csv", "file2csv",
+        "Who are you?", "'Who are you,' I wondered", 
+        "ready to go?", "ready to go!")
+```
+
+If you want to mess around with the patterns to see what's going on, you can copy/paste the setup and string code into your own workbook.  
+  
+### Q1
+Anchors
+```{r, echo = FALSE}
+cat("starting string: ", nn, "\n\n")
+```
+
+```{r}
+str_subset(nn, "^[aieou]")
+str_subset(nn, "[aieou]$")
+str_subset(nn, "e$")
+```
+
+### Q2
+Quantifiers/combinations
+```{r, echo = FALSE}
+cat("starting string: ", pp, "\n\n")
+```
+```{r}
+str_subset(pp, "p{2,}")
+str_subset(pp, "p.*n")
+str_subset(pp, "p.+p")
+str_subset(pp, ".+p")
+```
+
+Showing what exactly is matching
+```{r}
+#more detail
+str_extract(pp, "p{2,}")
+str_extract(pp, "p.*n")
+str_extract(pp, "p.+p")
+str_extract(pp, ".+p")
+```
+
+
+### Q3
+quantifiers/combinations
+```{r, echo = FALSE}
+cat("starting string: ", ss, "\n\n")
+```
+
+```{r}
+str_subset(ss, "s{2}")
+str_subset(ss, "s{2,}")
+str_subset(ss, "s[^s]s")
+str_subset(ss, "[aeiou]s{2}")
+```
+
+### Q4
+writing anchors
+```{r, echo = FALSE}
+cat("starting string: ", nn, "\n\n")
+```
+```{r}
+str_subset(nn, "^[d-f]")
+str_subset(nn, "[r-t]$")
+str_subset(nn, "[m-p]$")
+str_subset(c("string", "sesame", "guest"), "^st")
+```
+
+### Q5
+writing escapes
+```{r, echo = FALSE}
+cat("starting string: ", ee, "\n\n")
+```
+```{r}
+str_subset(ee, "file\\.csv")
+str_subset(ee, "ready to go\\?")
+str_subset(ee, "nd@nd\\.edu")
+str_subset(ee, "Who are you\\?")
+```
+
+### Q6
+patterns with ranges/classes  
+output shows the exact part that matches  
+*note: [:digit:] is interchangeable with \\d and [0-9]*  
+See code for starting strings
+```{r}
+str_extract(ee, "[:alpha:][:punct:]")
+str_extract(pp, "[^aeiou]+")
+str_extract(c(0, 10, 100, 1234), "[:digit:]{3,}")
+str_extract(c("1", "1 1", "1.1", "a.1", "a 1"), "[:digit:]\\s")
+```
+
+## TF-IDF [15 pts]  
+  
+Set up documents 
+```{r, echo = FALSE}
+mary <- "Mary had a little lamb, little lamb, little lamb. Mary had a little lamb her fleece as white as snow"
+
+twinkle <- "Twinkle twinkle little star, how I wonder what you are, up above the world so high, like a diamond in the sky, twinkle twinkle little star, how I wonder what you are"
+
+wish <- "Star light star bright first star I see tonight. I wish I may, I wish I might, have the wish I wish tonight."
+
+cat("D1: ", mary, "\n\nD2: ", twinkle, "\n\nD3: ",wish)
+```
+
+### Q1: TF IDF calculations
+**TF** = Term frequency = count the word in a document  
+*If normalized* = count the word in a document / number of words in that document  
+**DF** = Document frequency = how many documents have the word? / how many documents are there total?  
+**IDF** = Inverse document frequency = log(1/DF) or log10(1/df)  
+  
+**TF-IDF**  = TF * IDF  
+  
+*For "mary" and the word "little"*  
+TF = `r str_count(mary, "little")`   
+TF normalized =  `r str_count(mary, "little")`/`r str_count(mary, "\\s")+1`  
+DF = `r sum(str_detect(c(mary, twinkle, wish), "little"))`/3  
+IDF = `r str_count(mary, "little")` * log(3/`r sum(str_detect(c(mary, twinkle, wish), "little"))`)  = `r round(str_count(mary, "little")*log(3/ sum(str_detect(c(mary, twinkle, wish), "little"))), 3)`  
+If you normalized or used log10, that's fine.
+
+### Q2: DTM  
+The three types of DTM we discussed are binary, frequency (or count) and TF-IDF
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#setup
+library(tidytext)
+library(tibble)
+library(dplyr)
+library(tidyr)
+docs <- tibble(doc = c("D1", "D2", "D3"),
+               text = c(mary, twinkle, wish))
+
+counted <- docs %>% 
+  unnest_tokens(word, text, "words") %>%
+  count(doc, word, name = "counts") %>%
+  filter(word %in% c("lamb", "twinkle", "little", "a", "the", "star", "wish", "fleece", "i", "mary"))
+
+dtm_counted <- counted %>%
+  pivot_wider(names_from = word, values_from = counts, values_fill = 0)
+
+dtm_binary <- counted %>% mutate(counts = ifelse(counts > 0, 1, 0)) %>%
+    pivot_wider(names_from = word, values_from = counts, values_fill = 0)
+
+dtm_tfidf <- counted %>%
+  bind_tf_idf(term = word, document = doc, n = counts) %>%
+  transmute(doc, word, tf_idf = round(tf_idf, 3)) %>%
+  pivot_wider(names_from = word, values_from = tf_idf, values_fill = 0)
+```
+Frequency DTM  
+```{r, echo = FALSE} 
+dtm_counted
+```  
+  
+  
+Binary DTM  
+```{r, echo = FALSE} 
+dtm_binary
+```  
+  
+    
+TF_IDF DTM (normalized and using natural log)
+```{r, echo = FALSE} 
+dtm_tfidf
+```
+
+### Q3  
+Whichever document has more of a particular word and/or a higher TF_IDF is the one that is more closely associated with that word. With a normalized TF_IDF, a tie in raw counts can probably be broken.
+  
+## Analysis Section [6 pts]
+This part doesn't lend itself nicely to a solution set here in R.  
+Given the time constraints & the difficulty of this section, I kept the total points low and tried to be generous. I looked for answers to all questions posed with multiple correct/plausible insights.  Come chat about this section if you want more information.

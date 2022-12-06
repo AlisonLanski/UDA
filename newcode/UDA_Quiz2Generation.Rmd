@@ -1,0 +1,527 @@
+---
+title:  "UDA Quiz 2 Generation"
+output:
+  html_document: default
+  html_notebook: default
+---
+#Week 15 Warmup: Topic Modeling
+
+For this warm-up, use the provided Organization Review data to create a topic model. Clean your text as needed. Try models with 3, 4, and 5 topics. For each k-model, try to label the topics. Provide the results of your efforts and a debrief on the experience and outcomes.
+
+##Setup: exploration and prep
+```{r, message = FALSE, warnings = FALSE}
+#load packages and data
+
+library(tidyverse)
+
+prac <- read_csv("C:/Users/alanski/Downloads/week15-practice.csv")
+glimpse(prac)
+
+#get rid of extra column
+prac <- prac[,2:3]
+```
+
+```{r}
+library(topicmodels)
+library(tidytext)
+library(topicdoc)
+library(ldatuning)
+
+prac_dtm <- prac %>% 
+  unnest_tokens(output = word, input = review) %>%
+  anti_join(stop_words, by = "word") %>%
+  filter(!str_detect(word, "^na$")) %>%
+  filter(!str_detect(word, "^[0-9]+$")) %>%
+  count(id, word) %>%
+  ungroup() %>%
+  cast_dtm(id, word, n)
+
+pr2 <- LDA(prac_dtm, k = 2, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pr3 <- LDA(prac_dtm, k = 3, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pr4 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pr5 <- LDA(prac_dtm, k = 5, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pr6 <- LDA(prac_dtm, k = 6, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pr7 <- LDA(prac_dtm, k = 7, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pr8 <- LDA(prac_dtm, k = 8, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pr9 <- LDA(prac_dtm, k = 9, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pr10 <- LDA(prac_dtm, k = 10, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+
+library(purrr)
+pr_list <- list(pr2, pr3, pr4, pr5, pr6, pr7, pr8, pr9, pr10)
+pr_gamma <- map(pr_list, tidy, matrix = "gamma")
+pr_beta <- map(pr_list, tidy, matrix = "beta")
+
+saveRDS(pr_list, file = "C:/Users/alanski/Downloads/pr_list.Rdata")
+
+load(file = "C:/Users/alanski/Downloads/pr_list.Rdata")
+rm(pr_list)
+load(url("https://canvas.nd.edu/courses/57088/files/1550863?wrap=1"))
+load(url("https://drive.google.com/file/d/1nvyJnNixX13BM1s-6e3ECvssYYZOQ00a/view?usp=sharing"))
+
+keep_top_beta <- function(df){
+  df <- df %>% group_by(topic) %>% top_n(beta, n = 5) %>% ungroup() %>% arrange(topic, desc(beta))
+}
+
+map(pr_beta, keep_top_beta)
+
+keep_top_gamma <- function(df){
+  df <- df %>% group_by(topic) %>% top_n(gamma, n = 2) %>% ungroup() %>% arrange(topic, desc(gamma))
+}
+
+map(pr_gamma, keep_top_gamma)
+
+prac %>% filter(id == "G911S") %>% pull(review)
+
+prac$review <- stringi::stri_conv(prac$review, to = 'utf-8')
+sa <- sentimentr::sentiment_by(sentimentr::get_sentences(prac$review), by = id)
+
+sac <- sentimentr::sentiment(sentimentr::get_sentences(corpus))
+prac %>% filter(id == "G911S") %>% pull(review) %>% sentimentr::sentiment_by() %>% sentimentr::highlight()
+
+perplexities <- tibble(k_value = 2:10, perplexity = map_dbl(pr_list, perplexity, newdata = prac_dtm))
+ggplot(perplexities,
+       aes(x = k_value, y = perplexity)) + 
+  geom_point() +
+  geom_line()
+
+map(pr_list, terms, 10)
+```
+
+
+
+
+```{r}
+pra1 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+pra2 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 0.5, delta = 0.1, seed = 999))
+pra3 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 1, delta = 0.1, seed = 999))
+pra4 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 2, delta = 0.1, seed = 999))
+pra5 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 4, delta = 0.1, seed = 999))
+pra6 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 8, delta = 0.1, seed = 999))
+pra7 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 16, delta = 0.1, seed = 999))
+pra8 <- LDA(prac_dtm, k = 4, method = "Gibbs", control = list(alpha = 32, delta = 0.1, seed = 999))
+
+pr10 <- LDA(prac_dtm, k = 10, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 999))
+
+library(purrr)
+pra_list <- list(pra1, pra2, pra3, pra4, pra5, pra6, pra7, pra8)
+pra_gamma <- map(pra_list, tidy, matrix = "gamma")
+pra_beta <- map(pra_list, tidy, matrix = "beta")
+
+
+map(pra_beta, keep_top_beta)
+map(pra_gamma, keep_top_gamma)
+
+prac %>% filter(id == "G911S") %>% pull(review)
+
+prac$review <- stringi::stri_conv(prac$review, to = 'utf-8')
+sa <- sentimentr::sentiment_by(sentimentr::get_sentences(prac$review), by = id)
+
+sac <- sentimentr::sentiment(sentimentr::get_sentences(corpus))
+prac %>% filter(id == "G911S") %>% pull(review) %>% sentimentr::sentiment_by() %>% sentimentr::highlight()
+
+perplexities_a <- tibble(a_value = c(0.1, 0.5, 1, 2, 4, 8, 16, 32), perplexity = map_dbl(pra_list, perplexity, newdata = prac_dtm))
+ggplot(perplexities_a,
+       aes(x = a_value, y = perplexity)) + 
+  geom_point() +
+  geom_line()
+
+map(pra_list, terms, 10)
+```
+
+
+
+```{r}
+library(gutenbergr)
+books <- gutenberg_download(c(11, 36), meta_fields = "title")
+unique(books$title)
+books %>% filter(title == "The War of the Worlds")
+bk <- books %>%
+  mutate(wwchapter = ifelse(title == "The War of the Worlds", 
+                            cumsum(str_detect(text, "^[XIV]+\\.$")), 0),
+         achapter = ifelse(title != "The War of the Worlds",
+                            cumsum(str_detect(text, "^CHAPTER [XIV]+\\.$")), 0),
+         chapter = wwchapter + achapter) %>%
+  filter(chapter > 0) %>%
+  group_by(title, chapter) %>%
+  mutate(text_long = paste(text, collapse = ' ')) %>%
+  select(-text) %>%
+  ungroup() %>%
+  distinct()
+
+#tokenize, stopwords, dtm, LDA (more than one? also by chapter?)
+#ask about chapter distinctness
+
+#ask about betas and gammas
+
+#do all chapters except for 1
+#ask them to categorize the new chapter into a particular topic based on top words?
+
+#add sentiment and look at that?
+
+
+#get data
+dbp <- textdata::dataset_ag_news(clean = TRUE) %>% mutate(index = row_number())
+
+#make it smaller
+ag <- dbp %>% group_by(class) %>% mutate(index2 = row_number()) %>% ungroup() %>% filter(index2 <= 300) %>% select(-index2)
+
+#screenshot for them
+glimpse(ag[,2:4])
+
+#dtm 
+ag_dtm <- ag %>%
+  unnest_tokens(output = word, input = description, token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(index, word) %>%
+  cast_dtm(document = index, term = word, value = n)
+
+#LDA
+ag_lda <- topicmodels::LDA(ag_dtm, 
+                           k = 3, 
+                           method = "Gibbs", 
+                           control = list(alpha = 0.1, delta = 0.1, seed = 2022))
+
+
+options(scipen = 10)
+ag_lda %>%
+  tidy(matrix = "beta") %>%
+  group_by(topic) %>% 
+  slice_max(beta, n = 15) %>%
+  mutate(rank = row_number()) %>%
+  ungroup() %>%
+  transmute(topic = paste0("topic", topic),
+            term,
+            beta,
+            rank) %>%
+  ggplot(aes(x = beta, y = reorder_within(term, beta, topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free") +
+  scale_y_reordered() +
+  ylab("term")
+
+ag_lda %>%
+  tidy(matrix = "beta") %>% 
+  filter(topic == 1) %>%
+  arrange(-beta)
+
+#form A
+ag_lda %>%
+  tidy(matrix = "beta") %>%
+  filter(term %in% c("california", "texas", "colorado", "florida")) %>%
+  arrange(term, topic) %>% 
+  ggplot(aes(x = term, y = beta, fill = as.character(topic))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(name = "topic", values = c("cornflowerblue", "navy", "darkgoldenrod2"))
+
+ag_lda %>%
+  tidy(matrix = "gamma") %>%
+  group_by(document) %>%
+  slice_max(gamma,n = 1) %>%
+  ungroup() %>%
+  mutate(document = as.integer(document)) %>%
+  inner_join(dbp, by = c("document" = "index")) %>%
+  ggplot(aes(x = document, y = gamma, fill = as.factor(topic))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~class)
+
+ag_lda %>%
+  tidy(matrix = "gamma") %>% 
+  filter(gamma > 0.4 & gamma < 0.7) %>%
+  arrange(document)
+
+ag_lda %>%
+  tidy(matrix = "gamma") %>%
+  filter(document == 1074)
+
+#for formA
+dbp %>% filter(index == 1074) %>% pull(description) 
+
+dbp %>% filter(str_detect(description, "battle")) %>% pull(description) %>% tail(15)
+
+terms(ag_lda, 15)
+
+
+quanteda::data_corpus_inaugural
+
+
+#limited_dtm <- 
+  dbp %>%
+  filter(str_detect(description, "[tT]uesday")) %>%
+  unnest_tokens(word, description, "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  filter(!str_detect(word, "tuesday")) %>%
+  filter(!str_detect(word, "[0-9]+")) %>%
+  filter(!word %in% c("reuters", "ap", "lt", "gt", 
+                      "quot", "http", "href", "fullquote.aspx",
+                      "www.investor.reuters.com")) %>%
+  count(index, word) %>%
+  cast_dtm(index, word, n) %>% View()
+
+limited_lda <- LDA(limited_dtm, k = 3, method = "Gibbs") 
+topicdoc::topic_diagnostics(monday_lda, monday_dtm)
+
+monday_lda %>% 
+tidy(matrix = "gamma") %>% #filter(gamma > 0.5)
+  filter(document >= 1325, document <= 1335)
+  filter(document %in% c(1333, 1334)) %>%
+  transmute(document, topic, metric = gamma)
+
+dbp %>% filter(index %in% c(1333, 1334)) %>% pull(description)
+```
+
+```{r, fig.width = 7, fig.height = 4}
+monday_lda %>% tidy(matrix = "beta") %>% 
+  group_by(topic) %>% 
+  slice_max(beta, n = 11) %>%
+  mutate(rank = row_number()) %>%
+  ungroup() %>%
+  transmute(topic = paste0("topic", topic),
+            term,
+            beta,
+            rank) %>%
+  ggplot(aes(x = beta, y = reorder_within(term, beta, topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free") +
+  scale_y_reordered() +
+  ylab("term") +
+  xlab("metric")
+  
+monday_lda %>% tidy(matrix = "beta") %>% 
+  filter(beta > .001) %>%
+  ggplot(aes(x = beta)) +
+  geom_histogram() +
+  facet_wrap(~topic)
+```
+
+```{r}
+
+
+
+library(stm)
+
+#build the corpus
+prac_text <- textProcessor(documents = prac$review, 
+                               metadata = prac)
+
+#clean up corpus-specific stopwords
+prac_prep <- prepDocuments(documents = prac_text$documents, 
+                               vocab = prac_text$vocab,
+                               meta = prac_text$meta)
+
+#look for number of topics -- check stats for 3, 4, 5
+#kTest_prac <- searchK(documents = prac_prep$documents, 
+#                vocab = prac_prep$vocab, 
+#                K = c(3, 4, 5), verbose = FALSE)
+
+#save(kTest_prac, 
+#     file = "C:/Users/Lanski/Dropbox/Data Science/Behavioral/TopicMod_Prep_ktest.Rdata")
+
+load("C:/Users/Lanski/Dropbox/Data Science/Behavioral/TopicMod_Prep_ktest.Rdata")
+
+#check results
+plot(kTest_prac)
+```
+
+Look at 3 topics
+```{r}
+#topics3_prep <- stm(documents = prac_prep$documents, 
+#              vocab = prac_prep$vocab, 
+#              K = 3, verbose = FALSE)
+
+#save(topics3_prep, 
+#     file = "C:/Users/Lanski/Dropbox/Data Science/Behavioral/TopicMod_Prep_k3.Rdata")
+
+load("C:/Users/Lanski/Dropbox/Data Science/Behavioral/TopicMod_Prep_k3.Rdata")
+
+#expected topic proportions
+plot(topics3_prep) #adds up to 100
+
+#see more detail 
+labelTopics(topics3_prep)
+#frex are the frequent and exclusive-to-this-topic words
+
+#lift/score are weighted words... have to read documentation to know more
+
+#statements with a high probability of being associated with each topic
+findThoughts(topics3_prep, texts = prac_prep$meta$review, n = 1)
+```
+DO the same stuff for 4 and 5, try to name stuff
+
+Look at 4 topics
+```{r}
+#topics4_prep <- stm(documents = prac_prep$documents, 
+#              vocab = prac_prep$vocab, 
+#              K = 4, verbose = FALSE)
+
+#save(topics4_prep, 
+#     file = "C:/Users/Lanski/Dropbox/Data Science/Behavioral/TopicMod_Prep_k4.Rdata")
+
+load("C:/Users/Lanski/Dropbox/Data Science/Behavioral/TopicMod_Prep_k4.Rdata")
+
+#expected topic proportions
+plot(topics4_prep) #adds up to 100
+
+#see more detail 
+labelTopics(topics4_prep)
+#frex are the frequent and exclusive-to-this-topic words
+
+#lift/score are weighted words... have to read documentation to know more
+
+#statements with a high probability of being associated with each topic
+findThoughts(topics4_prep, texts = prac_prep$meta$review, n = 1)
+```
+
+Look at 5 topics
+```{r}
+#topics5_prep <- stm(documents = prac_prep$documents, 
+#              vocab = prac_prep$vocab, 
+#              K = 5, verbose = FALSE)
+
+#save(topics5_prep, 
+#     file = "C:/Users/Lanski/Dropbox/Data Science/Behavioral/TopicMod_Prep_k5.Rdata")
+
+load("C:/Users/Lanski/Dropbox/Data Science/Behavioral/TopicMod_Prep_k5.Rdata")
+
+#expected topic proportions
+plot(topics5_prep) #adds up to 100
+
+#see more detail 
+labelTopics(topics5_prep)
+#frex are the frequent and exclusive-to-this-topic words
+
+#lift/score are weighted words... have to read documentation to know more
+
+#statements with a high probability of being associated with each topic
+findThoughts(topics5_prep, texts = prac_prep$meta$review, n = 1)
+```
+
+##Topic Labels and Debrief
+
+###Sample Labels
+
+| k-value      | Topic 1   | Topic 2  | Topic 3 | Topic 4 | Topic 5|
+| -------- |:-------------:|-----:|----:|----:|---:|
+| k = 3   | Work as a job | German office  | Work provides opportunities | XX | XX  |
+| k = 4   |  Outward looking | German office  | Inward looking  | Work as a job | XX  |
+| k = 5 |  Business-operations| Inward looking  | Work as a job | German office | Frustrated at work |  
+###Debrief
+
+These topics were harder to sort out than I had anticipated.  The German group clearly stands along and raises a question for me on how to properly analyze multi-lingual data -- is it even possible to do effectively?  I could see this as a data cleaning issue where we might want to remove all German entries before running the models, but I liked how it revealed different populations answering the survey.
+I didn't see a lot of difference between k = 3, 4 and 5 overall.  It seemed like each set had unhappy and happy people, and the more Ks we got, the more those groups were being subdivided.  I had a harder time distinguishing between unhappy groups than happy groups, so I would be inclined to stay with k =3 or k = 4 for this data.  Based on the evaluative plots, it seems like 4 provides better residuals at some semantic cost; depending on the proper weighting of those variables, I would make a final decision on which set to work with more.
+
+```{r fig.width = 7, fig.height = 3}
+library(gutenbergr)
+
+#set one
+books <- gutenberg_download(c(11, 18, 36), meta_fields = "title")
+unique(books$title)
+bk <- books %>%
+  mutate(wwchapter = ifelse(title == "The War of the Worlds", 
+                            cumsum(str_detect(text, "^[XIV]+\\.$")), 0),
+         achapter = ifelse(title == "Alice's Adventures in Wonderland",
+                            cumsum(str_detect(text, "^CHAPTER [XIV]+\\.$")), 0),
+         fchapter = ifelse(title == "The Federalist Papers",
+                           cumsum(str_detect(text, "^No\\. [XIV]+\\.$")), 0),
+         chapter = wwchapter + achapter + fchapter) %>%
+  filter(chapter > 0) %>%
+  group_by(title, chapter) %>%
+  mutate(text_long = paste(text, collapse = ' ')) %>%
+  select(-text) %>%
+  ungroup() %>%
+  distinct() %>%
+  mutate(index = row_number())
+
+
+#set two
+books <- gutenberg_download(c(11, 164, 36), meta_fields = "title")
+unique(books$title)
+books %>% filter(title == "Twenty Thousand Leagues under the Sea")
+bk <- books %>%
+  mutate(wwchapter = ifelse(title == "The War of the Worlds", 
+                            cumsum(str_detect(text, "^[XIV]+\\.$")), 0),
+         achapter = ifelse(title == "Alice's Adventures in Wonderland",
+                            cumsum(str_detect(text, "^CHAPTER [XIV]+\\.$")), 0),
+         fchapter = ifelse(title == "Twenty Thousand Leagues under the Sea",
+                           cumsum(str_detect(text, "^CHAPTER [XIV]+$")), 0),
+         chapter = wwchapter + achapter + fchapter) %>%
+  filter(chapter > 0) %>%
+  group_by(title, chapter) %>%
+  mutate(text_long = paste(text, collapse = ' ')) %>%
+  select(-text) %>%
+  ungroup() %>%
+  distinct() %>%
+  mutate(index = row_number())
+
+#tokenize, stopwords, dtm, LDA (more than one? also by chapter?)
+#ask about chapter distinctness
+
+#ask about betas and gammas
+
+#do all chapters except for 1
+#ask them to categorize the new chapter into a particular topic based on top words?
+
+#add sentiment and look at that?
+
+bk_dtm <- bk %>%
+  unnest_tokens(word, text_long, "words") %>%
+  mutate(word = str_remove_all(word, "_")) %>%
+  anti_join(stop_words, by = "word") %>%
+  count(index, word) %>%
+  cast_dtm(index, word, n)
+cast_dtm()
+
+
+bk_lda <- LDA(bk_dtm, k = 4, method = "Gibbs", control = list(seed = 1234))
+
+bk_lda %>% tidy(matrix = "beta") %>% group_by(topic) %>% slice_max(beta, n=10) %>%
+  ungroup() %>%
+  ggplot(aes(x = beta, y = reorder_within(term, beta, topic))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~topic, scales = "free", nrow = 1) +
+        ylab("") +
+  xlab("") +
+  ggtitle("Four Topics") +
+  scale_y_reordered()
+
+
+bk_lda3 <- LDA(bk_dtm, k = 3, method = "Gibbs", control = list(seed = 1234))
+
+bk_lda3 %>% tidy(matrix = "beta") %>% group_by(topic) %>% slice_max(beta, n=10) %>%
+  ungroup() %>%
+  ggplot(aes(x = beta, y = reorder_within(term, beta, topic))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~topic, scales = "free", nrow = 1) +
+      ylab("") +
+  xlab("") +
+  ggtitle("Three Topics") +
+  scale_y_reordered()
+  
+
+bk_lda2 <- LDA(bk_dtm, k = 2, method = "Gibbs", control = list(seed = 1234))
+
+bk_lda2 %>% tidy(matrix = "beta") %>% group_by(topic) %>% slice_max(beta, n=10) %>%
+  ungroup() %>%
+  ggplot(aes(x = beta, y = reorder_within(term, beta, topic))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~topic, scales = "free", nrow = 1) +
+    ylab("") +
+  xlab("") +
+  ggtitle("Two Topics") +
+  scale_y_reordered()
+
+bk_lda5 <- LDA(bk_dtm, k = 5, method = "Gibbs", control = list(seed = 1234))
+
+bk_lda5 %>% tidy(matrix = "beta") %>% group_by(topic) %>% slice_max(beta, n=10) %>%
+  ungroup() %>%
+  ggplot(aes(x = beta, y = reorder_within(term, beta, topic))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~topic, scales = "free", nrow = 1) +
+  ylab("") +
+  xlab("") +
+  ggtitle("Five Topics") +
+  scale_y_reordered()
+
+
+gutenberg_works()[101:150,]
+```
+

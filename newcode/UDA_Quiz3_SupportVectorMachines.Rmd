@@ -1,0 +1,167 @@
+---
+title: "Optical Character Recognition with Support Vector Machines"
+author: "Unstructured Data Analytics"
+
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+For this exercise, we'll train a **Support Vector Machine** model for Optical Character Recognition (OCR). OCR is the process of finding and recognizing text within an image. The image can be in the form of a screenshot, a scanned document, a picture, etc.  
+  
+Let's get started.  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+library(readr)
+library(dplyr)
+library(tidyr)
+library(caret)
+```
+
+## 1. Collect the Data
+Let's begin by importing and previewing the letters dataset. 
+  
+The dataset we will be working with contains English alphabet letters as printed using *20* different randomly reshaped and distorted black and white fonts. Some pre-processing was done to convert the images to *glyphs*. Each letter (glyph) is represented by *16* statistical attributes. We need a vector space of numbers to run SVM.
+  
+```{r}
+#preset code: DO NOT MODIFY
+letters <- read_csv("https://s3.amazonaws.com/notredame.analytics.data/letters.csv")
+letters <- mutate(letters, letter = as.factor(letter))
+head(letters)
+```
+
+## Answer Questions 1-5 on Canvas
+If you need to explore more, write your code here
+```{r}
+#your code
+```
+
+
+## 2. Explore and Prepare the Data
+Next, we split our data into training and test sets.
+
+### R task: set up the data partition by adding two arguments below. READ INSTRUCTIONS.
+Replace each ???? below appropriately with an argument name and a value  
+You will need an outcome variable.  
+You will need to provide a percent of data for the training set: *use 80%*  
+Use this format: something = value  
+  (arguments are named, spaces surrounding the =)  
+Not sure what to do? Check the documentation for createDataPartition.  
+Put arguments in the same order as they appear in the documentation. 
+```{r}
+#FYI: RNDkind ensures that our seeds will be consistent across computers and operating systems
+RNGkind(sample.kind = "Rounding")
+set.seed(1234)
+#make your additions to this line of code
+sample_set <- createDataPartition(????, ????, list = FALSE)
+letters_train <- letters[sample_set, ]
+letters_test <- letters[-sample_set, ]
+```
+
+### Answer Questions 6-7 on Canvas
+
+## 3. Train the Model
+To train an SVM model, we set the method of the caret `train()` function to `"svmLinear"`, which is a simple linear kernel. We also set the cost (`C`) to 1 and use 3-fold cross-validation to evaluate performance. Note that we also had to load the `kernlab` package which is required for the method.
+
+```{r}
+#DO NOT MODIFY CODE
+library(kernlab)
+RNGkind(sample.kind = "Rounding")
+set.seed(1234)
+letters_mod <- train(
+  letter ~ .,
+  data = letters_train,
+  method = "svmLinear",
+  trControl = trainControl(method = "cv", number = 3),
+  tuneGrid = expand.grid(C = 1)
+)
+
+letters_mod
+```
+
+Is C = 1 really the best value?  
+Instead of setting C = 1 (only), provide 3 possible values for C, by replacing ???? with a numeric vector.  
+```{r}
+#YES, please modify C = ???? to something else
+RNGkind(sample.kind = "Rounding")
+set.seed(1234)
+letters_mod_c <- train(
+  letter ~ .,
+  data = letters_train,
+  method = "svmLinear",
+  trControl = trainControl(method = "cv", number = 3),
+  tuneGrid = expand.grid(C = ????)
+)
+
+letters_mod_c
+```
+
+### Answer question 8 on canvas
+
+## 4. Evaluate the Model
+Using the model, let's attempt to predict the labels of the letters in the `letters_test` dataset. 
+Use whichever model (letters_mod or letters_mod_c) performed best above
+```{r}
+letters_pred <- predict(????, letters_test)
+head(letters_pred)
+```
+
+With our predictions, we can generate a confusion matrix.
+
+```{r}
+letters_matrix <- confusionMatrix(data = letters_pred, reference = letters_test$letter)
+letters_matrix$table
+```
+
+We can also get metrics (accuracy and kappa only) for how our model performs against the test data.
+
+```{r}
+library(broom)
+tidy(letters_matrix) %>%
+  filter(term %in% c('accuracy','kappa')) %>%
+  select(term, estimate) %>%
+  pivot_wider(names_from = term, values_from = estimate)
+```
+
+Not too bad! I suspect we can do better.
+
+
+## 5. Improve the Model
+To improve the performance of our model, let's set the method of the caret `train()` function to `"svmRadialCost"`. This means that we intend to use the Gaussian RBF kernel. **Note that this may take a while to complete!**
+
+```{r}
+RNGkind(sample.kind = "Rounding")
+set.seed(1234)
+letters_mod_radial <- train(
+  letter ~ .,
+  data = letters_train,
+  method = "svmRadialCost",
+  trControl = trainControl(method = "cv", number = 3),
+  tuneGrid = expand.grid(C = 1)
+)
+
+letters_mod_radial
+```
+
+Now, let's see see how our new model performs against the test set.
+
+Add some code to make this work
+```{r}
+letters_pred <- predict(????)
+letters_matrix <- confusionMatrix(????)
+
+tidy(letters_matrix) %>%
+  filter(term %in% c('accuracy','kappa')) %>%
+  select(term, estimate) %>%
+  pivot_wider(names_from = term, values_from = estimate)
+```
+
+### Answer questions 9-13 on Canvas
+

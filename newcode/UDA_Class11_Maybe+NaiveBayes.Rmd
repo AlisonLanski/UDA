@@ -1,0 +1,207 @@
+---
+title: "Document Classification with Naïve Bayes"
+author: "Unstructured Data Analytics (MSBA 70450)"
+
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+For this exercise, we'll train a **Naïve Bayes** model to classify documents (email messages). The dataset consists of over sixteen hundred email messages which were previously labeled as either "*ham*" (legitimate messages) or "*spam*" (unsolicited commercial email). The emails in this dataset come from the Enron Corporation and were initially released by the Federal Energy Regulatory Commission as part of their investigation into the collapse of the firm.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(SnowballC)
+library(caret)
+```
+
+## 1. Collect the Data
+Let's begin by importing and previewing the email dataset.
+
+```{r}
+email <- read_csv("https://s3.amazonaws.com/notredame.analytics.data/email.csv")
+head(email)
+```
+
+Our dataset is a DTM which consists of a unique identifier for each email (`message_index`), a label for each email (`message_label`) and a column for each of the unique words used in the emails with a binary indicator for whether a word was used in a particular email. To get a count of the number of rows and columns in our dataset, we use the `nrow()` and `ncol()` functions.
+
+```{r}
+nrow(email)
+ncol(email)
+```
+
+
+## 2. Explore the Data
+To get a very high-level representation of the words used in the corpus, let's list the top 5 words by count.
+
+```{r fig.width=5}
+email %>%
+  pivot_longer(!c("message_index", "message_label"), names_to = "word", values_to = "count") %>%
+  group_by(word) %>%
+  summarize(n = sum(count)) %>%
+  top_n(5, n) %>% 
+  ungroup() %>%
+  ggplot(mapping = aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = 'skyblue') +
+  labs(x = "word", y = "count") +
+  coord_flip() +
+  theme_minimal()
+```
+
+Not surprisingly, we see the words "enron", "time", "information", "http" and "message" feature prominently in the list.
+
+Let's see what words feature prominently between the "ham" and "spam" messages. This time, we'll take a look at the top 5 words in each category by tf-idf.
+
+```{r fig.width=10}
+library(tidytext)
+email %>%
+  pivot_longer(!c("message_index", "message_label"), names_to = "word", values_to = "count") %>%
+  group_by(message_label, word) %>%
+  summarise(n = sum(count)) %>%
+  top_n(1000, n) %>%
+  bind_tf_idf(word, message_label, n) %>%
+  top_n(5, tf_idf) %>%
+  ungroup() %>%
+  ggplot(mapping = aes(x = reorder_within(word, tf_idf, message_label), y = tf_idf, fill = message_label)) +
+  geom_col() +
+  labs(x = "word", y = "tf_idf") +
+  facet_wrap(~message_label, ncol = 2, scales = "free") +
+  coord_flip() +
+  scale_x_reordered() +
+  scale_y_continuous(expand = c(0,0)) +
+  theme_minimal()
+ 
+```
+
+These high-level visualizations provide some insight on "important words", but not much more than that.
+
+## 3. Prepare the Data
+We are now ready to split our data into training and test sets. Before we do, let's reduce the dimensionality of the dataset by stemming the words. We use the `wordStem()` function from the `SnowballC` package for this.
+
+```{r}
+email <- email %>%
+  pivot_longer(!c("message_index", "message_label"), names_to = "word", values_to = "count") %>%
+  mutate(word = wordStem(word)) %>%
+  group_by(message_index, message_label, word) %>%
+  summarize(count = sum(count)) %>%
+  ungroup() %>%
+  mutate(count = ifelse(count > 0, 1, 0)) %>%
+  pivot_wider(names_from = word, values_from = count, values_fill = 0) 
+```
+
+To verify that stemming reduced the dimensionality of our dataset, let's get the number of rows and columns again.
+
+```{r}
+nrow(email)
+ncol(email)
+```
+
+We see that the number of columns in our dataset has gone down from 1103 to 882.
+
+Next, we convert the dependent variable (`message_label`) to a factor and split our data into training and test sets.
+
+```{r}
+email <- mutate(email, message_label = as.factor(message_label))
+
+#RNGkind(sample.kind = "Rounding")
+set.seed(1234)
+#createDataPartition is from caret
+sample_set <- createDataPartition(y = email$message_label, p = .75, list = FALSE)
+email_train <- email[sample_set, ]
+email_test <- email[-sample_set, ]
+```
+
+Let's check the class distributions for all three datasets.
+
+```{r}
+round(prop.table(table(select(email, message_label))),2)
+round(prop.table(table(select(email_train, message_label))),2)
+round(prop.table(table(select(email_test, message_label))),2)
+```
+
+**Question:** Our data does not suffer from class imbalance. If it did, what should we do about it?
+
+## 4. Train the Model
+To train a Naïve Bayes model, we set the method of the caret `train()` function to `"naive_bayes"`. Note that we also had to load the `naivebayes` package which is required for the method. 
+
+```{r}
+library(naivebayes)
+#RNGkind(sample.kind = "Rounding")
+set.seed(1234)
+bayes_mod <- train(
+  message_label ~ . - message_index,
+  data = email_train,
+  method = "naive_bayes", 
+  #tuneGrid = expand.grid(usekernel = c(TRUE, FALSE), laplace = 0.5, adjust = 1)
+)
+
+bayes_mod
+getModelInfo("naive_bayes"
+             )
+email$http
+
+set.seed(1234)
+bern_model <- 
+bernoulli_naive_bayes(x = email_train[3:882], 
+                      y = email_train$message_label)
+
+summary(bern_model)
+bern_pred <- predict(bern_model, as.matrix(email_test[3:882]), type = "class")
+
+email_test$bern_pred <- bern_pred
+
+table(email_test$message_label, email_test$bern_pred)
+```
+
+## 5. Evaluate the Model
+Using the model, let's predict the labels of the messages in the `email_test` dataset. 
+
+```{r}
+bayes_pred <- predict(bayes_mod, email_test)
+head(bayes_pred)
+```
+
+With our predictions, we can now generate a confusion matrix...
+```{r}
+bayes_matrix <- confusionMatrix(bayes_pred, email_test$message_label, positive = "spam")
+bayes_matrix$table
+```
+
+...and calculate the performance measures for our model against the test data.
+```{r}
+library(broom)
+tidy(bayes_matrix) %>%
+  filter(term %in% c('accuracy','kappa','sensitivity','specificity','precision','recall','f1')) %>%
+  select(term, estimate) %>%
+  pivot_wider(names_from = term, values_from = estimate)
+```
+
+Our model performs remarkably well considering the little effort that we put into building it.
+
+**Question:** What else can we do to improve the performance of our model?
+
+```{r}
+install.packages("word2vec")
+install.packages("polite")
+
+library(rvest)
+library(polite)
+session <- bow("https://en.wikipedia.org/wiki/List_of_Saturday_Night_Live_guests", force = TRUE)
+result <- scrape(session) %>%
+result %>% html_nodes("table") %>%
+  grepl("Host", .) %>% 
+  which(. == TRUE)#  html_node("#main-body") %>% 
+  html_nodes("h3") %>% 
+  html_text()
+head(result)
+
+```
+

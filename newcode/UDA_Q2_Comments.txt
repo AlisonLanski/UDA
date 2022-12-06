@@ -1,0 +1,74 @@
+9 pts
+beta values depend a lot on how many words there are within a topic (a lot of words often means smaller betas, because there's less to go around); coherence is more important for topic selection
+
+landfall looks like a better label for topic 2 in the 4-topic list than for topic 2 in the 3-topic list.  
+
+The problem with not enough topics is that concepts are combined; the problem with too many topics is that you get redundancy between them. Here, "island" and "sea/sailing" are pretty close in theme.  So while it's valid to feel like 4 is the best number (although I'd go with 3), it helps to look at the particular words in the model when supporting your choice and how well they hang together. 
+
+Thanks for finding the books!  5 is a reasonable selection; support that coherence argument with an example or two (which words?)
+
+8
+beta values depend a lot on how many words there are within a topic (a lot of words often means smaller betas, because there's less to go around); coherence is more important for topic selection.  You're right that those stopwords aren't very helpful, but if the other words are solid, it's not too important.  Which labels would you use?
+
+8 - DJ, generous, labels are missing, should be a 7
+This is a multi-document corpus; the topics can help us distinguish between them.  It's definitely true that with a 2-topic model, the second topic doesn't make much sense at all!  Better to look at each topic to see "do these things make sense together"?
+
+9
+beta values depend a lot on how many words there are within a topic (a lot of words often means smaller betas, because there's less to go around); for coherence, it's more important to look at the words and decide if they form a reasonable sense unit. 
+
+topic 3 is a little wonky since we have a collection of sports-related words (game, league, season, officials) and geopolitical words (iraq, security, minister, killed,).  it's less coherent than the other topics.
+
+topic 3 is a little wonky since we have a collection of sports-related words (game, league, season, officials) and geopolitical words (iraq, security, minister, killed,).  it's definitely less coherent than the other topics.  The lower beta values could also be happening if there are many more words within that topic.
+
+the third topic is a little weird right? even though we do have good soccer words, we also have things like iraq, security, killed, minister.  it's a much less coherent topic than the others.
+
+topic 3 is a little wonky with "night" "game" "league"  "season" together with "iraq" "minister" etc.  The top words in topic 3 as a whole aren't nearly as strong as in the other topics. 
+
+topic 3 is a little wonky with "night" "game" "league"  "season" together with "iraq" "minister" etc.  You're right that there are some words that go together (good examples)! but the top words a whole aren't nearly as strong as in the other topics.  York is coming out because New York is being split :} company should make sense with a financial/economic focus.
+
+topic 3 is a little wonky with "night" "game" "league"  "season" together with "iraq" "minister" etc.  These top words as a whole aren't nearly as strong as in the other topics.  You're right that there are some words that line up like the money words in topic 1; more examples would help your discussion. Election conversation is a reasonable guess --- this is actually from news sources
+
+
+8
+beta values depend a lot on how many words there are within a topic (a lot of words often means smaller betas, because there's less to go around); for coherence, it's more important to look at the words and decide if they form a reasonable sense unit.  the largest betas simply tell us which words to focus on.
+
+
+3
+
+2
+almost -- the second line is removing any mention of tuesday or numbers
+
+almost -- the second highlight is removing any mention of tuesday or numbers. notice the ! for "not"
+
+almost -- it's looking for tuesday or a number and removing those lines (keeping everything else) in the second part
+
+the first filter keeps only the documents with "tuesday", in the second one, the | is just an "or" so the second part is removing "tuesday" and it's also removing any numbers.  There's no sequential relationship necessary/
+
+1
+
+yes, we're keeping "tuesday" data, but then, in the second part, it's looking for tuesday or a number and removing those lines (keeping everything else)
+
+
+randomness in the model will still produce different answers. Setting a seed would ensure the same results
+
+3
+
+
+
+2.5 
+if you think it's mostly related to 1 & 2, you probably would end up with a more mixed values (like 0.6, 0.337, 0.003) than a 90/10 split --- just based on your discussion, I expected to see something closer together.
+
+2
+
+principles are ok, but you should have a gamma for each of your three previous topics (business, government, olympics), even if one of the scores is close to 0 
+gammas within a document must sum to 1
+
+the document would have a gamma value for each topic; the values would have to sum to 1. So a high gamma could be assigned to one of the topics, but the others would also need assignments.
+
+
+
+an example of the relationship you see for coherence would be helpful; beta values depend a lot on how many words there are within a topic -- more words will dilute the betas
+
+
+coherence is more of a topic-by-topic question: do the words within a topic make sense together on a particular theme? or is there no strong theme? you seem to be looking to see if the three topics can be combined into one theme -- if they all share a lot of ideas in common, that would suggest low coherence, since the topics wouldn't be well distinguished from each other
+
