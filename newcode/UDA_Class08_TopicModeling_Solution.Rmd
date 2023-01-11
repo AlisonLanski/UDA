@@ -1,0 +1,250 @@
+---
+title: "Topic Modeling"
+author: "Unstructured Data Analytics"
+
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+### 1. A Simple Topic Model
+The `topicmodels` package provides us with a set of tools for topic modeling. 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(tidyr)
+library(tidytext)
+library(topicmodels)
+```
+
+Let's begin with a simple corpus of sentences (documents to us).
+
+```{r}
+corpus <-
+  c(
+    "Due to bad loans, the bank agreed to pay the fines.",
+    "If you are late paying your bank loan, you will incur a fine.",
+    "I heard that a new restaurant opened downtown.",
+    "We had some good food at the new restaurant that just opened on Warwick street.",
+    "How will you pay off the business loan for your restaurant?"
+  )
+```
+
+The first thing we do is convert the corpus to a tibble.
+
+```{r}
+corpus <- tibble(document=1:5, text = corpus)
+corpus
+```
+
+Then, we tokenize, remove stop words and convert it to a DTM (Document Term Matrix) using the `cast_dtm()` function from the `tidytext` package. 
+
+```{r}
+corpus_dtm <- corpus %>%
+  unnest_tokens(word, text) %>%
+  anti_join(stop_words, by = "word") %>%
+  count(document, word) %>%
+  ungroup() %>%
+  cast_dtm(document, word, n)
+```
+
+Note that we converted our data to a DTM because that is a requirement of the `LDA()` function from the `topicmodels` package. Once our data has been converted to a DTM, we can no longer preview it by simply calling it. We need to pass it to the `as.matrix()` function to preview it.
+
+```{r}
+as.matrix(corpus_dtm)
+```
+
+**Question:** What vector space model representation is this - binary, frequency count or weighted vector?
+
+Now that we have our data in the format that we need it, we can use the `LDA()` function for topic modeling. The `LDA()` function takes several arguments:
+
+1. `k` - The number of topics we want. We set this to `2`.
+2. `method` - The method to use when fitting the model. We set this to `"Gibbs"` for Gibbs Sampling. The other supported method is `"VEM"`.
+3. `alpha` - The dirichlet prior for the probability that a document belongs to a topic. We set this to `0.1`. 
+4. `delta` - The dirichlet prior for the probability distribution of words over topics. Set this to `0.1` as well.
+5. `seed` - Random number generation seed. We set this to `1`.
+
+```{r}
+corpus_lda <- corpus_dtm %>%
+  LDA(k = 2, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 1))
+
+corpus_lda
+```
+
+With our model in place, let's do some exploration and interpretation. The `LDA()` function returns two matrices. The first is called `beta` and it contains the probability of words belonging to a topic. The second matrix is called `gamma` and it contains the prevalence of topics within a document. To work with these matrices directly, we need to tidy them.
+
+Let's start with `beta`.
+
+```{r}
+corpus_topics <- corpus_lda %>%
+  tidy(matrix = "beta")
+
+corpus_topics
+```
+
+To see how good of a model we have, let's take a look at the top 5 words for each topic.
+
+```{r}
+corpus_topics %>%
+  mutate(topic = str_c("topic", topic)) %>%
+  group_by(topic) %>%
+  top_n(5, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(mapping = aes(x = term, y = beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered()
+```
+
+**Question:** What labels would you assign to each topic?
+
+Next, we look at `gamma`.
+
+```{r}
+corpus_documents <- corpus_lda %>%
+  tidy(matrix = "gamma")
+
+corpus_documents
+```
+
+Let's reformat this in a way that's easier to analyze.
+
+```{r}
+corpus_documents %>%
+  mutate(topic = str_c("topic", topic)) %>%
+  pivot_wider(names_from = topic, values_from = gamma) %>%
+  mutate(document = as.integer(document)) %>%
+  inner_join(corpus, by = "document") %>%
+  arrange(document)
+```
+
+**Question:** How does this compare to what you expected?
+
+### 2. Modeling the Topics from the Associated Press Dataset
+To further illustrate topic modeling, let's work with a larger dataset (the Associated Press practice dataset from 1992). The dataset is provided by the `tm` package. It contains 10473 terms across 2246 documents.
+
+```{r, message = FALSE}
+library(tm)
+```
+
+To import the data into our environment, we pass the name of the dataset ("AssociatedPress") to the `data()` function.
+
+```{r}
+data("AssociatedPress")
+```
+
+Next, we remove the stop words and convert our dataset into a DTM.
+
+```{r}
+#find the correct join colums by 
+# looking at the result of AssociatedPress %>% tidy()
+# and the stop_words data
+ap_dtm <- AssociatedPress %>%
+  tidy() %>%
+  anti_join(stop_words, by = c("term" = "word")) %>%
+  cast_dtm(document = document, term = term, value = count)
+```
+
+Then we model the topics in the document.
+
+```{r, cache = TRUE}
+#pick numbers
+ap_lda <- ap_dtm %>%
+  LDA(k = 5, method = "Gibbs", control = list(alpha = 0.1, delta = 0.1, seed = 1))
+
+ap_lda
+```
+
+#### Word-topic Probabilities
+We can get the per-topic-per-word probabilities (`beta`)...
+
+```{r}
+ap_topics <- ap_lda %>%
+  tidy(matrix = "beta")
+
+ap_topics
+```
+
+...and take a look at the terms that are most common within each topic.
+
+```{r}
+ap_topics %>%
+  mutate(topic = str_c("topic", topic)) %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(mapping = aes(x = term, y = beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered()
+```
+
+**Question:** What label would you assign to each topic?
+
+
+#### Document-topic Probabilities
+Now that we've seen the word probabilities by topic, let's get the per-document-per-topic probabilities (`gamma`).
+
+```{r}
+ap_documents <- ap_lda %>%
+  tidy(matrix = "gamma")
+
+ap_documents
+```
+
+First, we look at the documents with the most dominance by a single topic.
+
+```{r}
+ap_documents %>%
+  mutate(topic = str_c("topic", topic)) %>%
+  pivot_wider(names_from = topic, values_from = gamma) %>%
+  arrange(desc(abs(topic1 - topic2)))
+```
+
+Look for a document that is almost entirely from a single topic (the gamma value is close to 1). Let's look at the most frequent words in that document.
+
+```{r}
+tidy(AssociatedPress) %>%
+  filter(document == 20) %>%
+  arrange(desc(count))
+```
+
+Find another document that is mostly from a different topic. Let's take a look at it as well.
+
+```{r}
+tidy(AssociatedPress) %>%
+  filter(document == 1792) %>%
+  arrange(desc(count))
+```
+
+**Question:** Now that we see the words in some of these documents, do you still think our topic labels are good?
+
+When we feel that we're done, we can return the consensus topic for each document, by taking the topic with the highest gamma value.
+
+```{r}
+ap_documents %>%
+  group_by(document) %>%
+  top_n(1, gamma) %>%
+  ungroup() %>%
+  arrange(as.integer(document))
+```
+
+The consensus topic can now serve as the label for each of the documents in our corpus. However, remember that topic modeling is soft clustering. A document can belong to more than one topic.
+
+
