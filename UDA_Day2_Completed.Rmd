@@ -1,0 +1,243 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Preliminaries'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Well well well, What do we have here? 
+*First explorations of a new dataset*
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#load initial packages
+library(tidyverse)
+```
+
+  
+## Let's read in some data and check it out
+
+```{r}
+#read it in
+sports <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories.csv")
+```
+How can we explore this dataset to find out what it offers us?
+```{r}
+#explore!
+summary(sports)
+head(sports)
+tail(sports)
+dim(sports)
+glimpse(sports)
+```
+
+
+## "Bag of words" methods
+
+*How do we find the words?*
+*What issues might we run into?*
+
+### Dividing and Counting
+Can you count how many words there are in one Story? In all the stories?
+Can you tell me how many times a particular word shows up in one Story? In all the stories? 
+```{r}
+#let's count
+
+#start small for proof of concept
+story1 <- sports[1,2]
+
+#count spaces and add one to get wordcounts
+stringr::str_count(string = story1, pattern = " ")+1
+stringr::str_count(string = story1, pattern = " +")+1
+stringr::str_count(string = story1, pattern = "\\s+")+1
+
+#can look for spaces followed by letters to extract individual words
+stringr::str_extract(string = story1, pattern = " \\w+")
+
+
+```
+Want to do this for a whole dataset? Could do a str_extract_all and then coerce that into a dataframe, pivot etc, or we could run regex in a loop row by row...
+These are good methods if you want very fine control over what R is doing as you are preprocessing your data (preparing it) for more text analysis
+
+## Is there an easier way?
+Yes, of course, this is R.
+```{r}
+#load package
+library(tidytext)
+```
+
+Divide and prep
+```{r}
+#use package tidytext, let's work one story
+story1_words <- unnest_tokens(story1, #the dataframe/tibble
+                              output = words, #column name for results
+                              input = story,  #column name for text data
+                              token = "words") #what level of division?
+story1_words
+```
+
+### What changes were made from the starting text to the version? 
+Compare the result above to the original story1 data below
+```{r}
+story1 
+```
+What changes do we see after `unnest_tokens`?
+
+ * separated into words
+ * pivoted (one row per word, instead of a column for each word)
+ * whitespace gone
+ * everything is lowercase
+ * no punctuation
+
+
+The act of separating into words is called **tokenization**.  
+A **token** is a unit of text that we want to break our starting data into. Individual words are a very common token for basic text analysis.
+
+The `unnest_tokens` function turns text data into tokens, and it *also* provides other data preprocessing (the rest of the list above)
+
+## Counts are surprisingly useful
+
+### Which words are most common overall? 
+### Which words are most common in each story? 
+
+Can you create a top-five list of words for the whole file? 
+Can you create a top-five list of words for each document?
+
+How do we get started? 
+```{r}
+#this is one way to count, but it's not easy to work with the results
+table(story1_words$words)
+```
+
+Let's use the tidyverse (in particular, the dplyr package)
+Again, start small to test the process
+```{r}
+# For each distinct word, we can ... 
+  # create a group
+  # count the number of rows in the group
+  # sort it large-to-small by count
+  # remove anything with small counts 
+    # for this example, "small" is < 3 
+    # but "small" will vary depending on your data
+story1_words %>% 
+  group_by(words) %>% 
+  summarize(count = n()) %>% 
+  arrange(desc(count)) %>%
+  filter(count >= 3)
+```
+
+Let's try this on the entire dataset all together.
+This time, let's get the Top 5 words
+```{r}
+# Above, we used filter to cut off the words that aren't very common
+# Here, we use a slice function to keep only the top-n words 
+unnest_tokens(sports, output=words,  input = story, token = "words") %>%
+  group_by(words) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count)) %>%
+  slice_max(order_by = count, n = 5)
+
+# _max means it will keep the biggest one (min would keep the smallest)
+# n = 5 means it will try keep the 5 highest results
+# order_by provides the column we should look at to decide "highest"
+
+# when you run slice_max after a group_by, it will slice separately within each group -- thanks R!
+```
+
+
+Notice that we actually get 6 words back for Story ID 1.  That's because we have ties.  R gets as close to 5 rows of results as possible, but you can end up with more.   
+  
+Can we get top 5 for each individual story, instead of lumping all the stories together? 
+```{r}
+# Group by the story first, then the words within each story
+unnest_tokens(sports, output=words,  input = story, token = "words") %>%
+  group_by(id, words) %>% #this is the only necessary update
+  summarize(count = n()) %>%
+  arrange(id, desc(count)) %>% #this one is nice to do also
+  slice_max(order_by = count, n = 5)
+```
+
+The problem here -- and above --- is that when we count, we end up with a bunch of really common words as our "top" words. That's not very helpful if we want to know what the stories are about!
+
+## Can we take out the common words?
+Sure!  We can use something like str_remove_all, but we'd have to do it a lot of times for each thing we want to take out. Ick.
+
+
+## Can we get a pre-existing list of common words?
+Yes, of course. This is R!
+
+Within the tidytext package, there is a built-in dataset called stop_words.  Let's load it.
+```{r}
+#load the data from tidytext
+stop_words
+```
+
+**Stop words** are common words that typically don't carry important meaning about the subject matter of text. They are words we want to "stop out" (aka remove) from our analysis.  
+
+Stop words are typically organized into lists of words that are essentially dictionaries -- or, because they don't have definitions -- lexicons.
+
+### Let's explore the stop_words data
+How many lexicons are there?   
+How many words are there in each lexicon?  
+*Do you want more dictionary options? Try the "stopwords" package.  It has additional stop words dictionaries, including support for foreign languages.*
+```{r}
+#explore lexicons -- here's one way to do it
+table(stop_words$lexicon) 
+```
+
+### What can we learn from our counts if we remove the stopwords using the SMART lexicon? 
+
+
+What are the steps here?
+
+ * get only the SMART words out of the original lexicon
+ * remove any words in the original data that match up with SMART words
+```{r}
+# step 1: get just the Smart words out -- dpylr method
+
+#dplyr method
+SMART <- stop_words %>% filter(lexicon == "SMART")
+#base method
+SMART <- stop_words[stop_words$lexicon == "SMART", ]
+
+#check our tokenized data
+story1_words
+#check our result here
+SMART
+
+#remove the stopwords
+#anti-join starts with a left-join, but then removes any rows that actually find a match
+anti_join(story1_words,  #left-side table 
+          SMART,         #right-side table
+          by = c("words" = "word")) %>%  #which columns to use as a key
+                                         #by = c("leftside" = "rightside")
+  count(words, sort = TRUE) #this is a shortcut to summarize and sort desc
+```
+
+Look at that!  All of the useless words are gone, and now we can see that this story has something to do with family and time in our new top results.  We can do our anti-join before or after we count, but we should do it BEFORE we take "top 5" words. 
+
+### Extra Question: Can we see which stopwords were removed?  
+(Are there any we might want to keep?)
+```{r}
+#review what we lost -- just do an inner join
+inner_join(story1_words, 
+           SMART,
+           by = c("words" = "word"))
+```
+
+Sometimes you want to keep something that is taken out automatically.
+If you know ahead of time that there's a word you want to keep, just remove it from the SMART data before your anti-join. 
+
+## Final Thoughts
+These methods are simple but highly effective if we want to explore and prepare basic text data, then see what it might be about.

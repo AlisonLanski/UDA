@@ -1,0 +1,288 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics"
+output:
+  pdf_document: null
+  toc: yes
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Preliminaries'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Well well well, What do we have here? 
+*First explorations of a new dataset*
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+```
+
+  
+## Let's read in some data and check it out
+
+```{r}
+#read it in
+sports <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories.csv")
+```
+
+```{r}
+#how can we explore it?
+glimpse(sports)
+head(sports)
+str(sports)
+sports[1,]
+View(sports)
+sports[1,1]
+dim(sports)
+colnames(sports)
+table(sports$Sport)
+table(sports$Feeling)
+```
+```{r}
+#do you see anything we should clean up? ---- MAYBE HOLD THIS FOR LATER? DO WE WANT TO AVOID CATEGORIES?
+sports$Sport <- tolower(sports$Sport)
+table(sports$Sport)
+```
+
+## "Bag of words" methods
+
+*How do we find the words?*
+*What issues might we run into?*
+
+```{r}
+#Can you count how many words there are in one Story? In all the stories?
+#Can you tell me how many times a particular word shows up in one Story? In all the stories? 
+story1 <- sports$Story[1]
+
+stringr::str_count(string = story1, pattern = "\\s+")+1
+stringr::str_count(string = story1, pattern = " +")+1
+
+stringr::str_count(string = story1, pattern = "lacrosse")
+
+#for all stories -- try a loop? or an sapply? or....?
+sapply(sports$Story, function (X) stringr::str_count(string = X, pattern = "\\s+")+1)
+
+for (i in 1:nrow(sports)){
+  print(stringr::str_count(string = sports$Story[i], pattern = "\\s+")+1)
+}
+
+wordcount <- 0
+for (i in 1:nrow(sports)){
+  wordcount <- stringr::str_count(string = sports$Story[i], pattern = "[L|l]acrosse") + wordcount
+}
+wordcount
+```
+## Is there an easier way?
+
+```{r}
+#load package
+library(tidytext)
+```
+
+```{r}
+#tokenize + prep
+#use drop = FALSE to keep the original DF column
+sports_words <- unnest_tokens(tbl = sports, output = words, input = Story, token = "words", drop = FALSE)
+head(sports_words, 25)
+```
+```{r}
+#other options
+sports_sentences <- unnest_tokens(tbl = sports, output = sentences, input = Story, token = "sentences", drop = FALSE)
+
+sports_ngrams <- unnest_tokens(tbl = sports, output = ngram, input = Story, token = "ngrams", n = 3)
+
+sports_ptb <- unnest_tokens(sports, treebank, Story, token = "ptb")
+sports_sn <- unnest_tokens(sports, treebank, Story, token = "skip_ngrams")
+
+```
+
+
+## Counts are surprisingly useful
+
+### Which words are most common overall? 
+### Which words are most common in each story? 
+
+Can you create a top-ten list of words for the whole file? 
+Can you create a top-tem list of words for each document?
+
+```{r}
+sports_words %>% group_by(words) %>% summarize(count = n()) %>% arrange(desc(count))
+```
+```{r}
+sports_words %>% group_by(words) %>% summarize(count = n()) %>% arrange(desc(count)) %>% slice_head(n = 10)
+
+sports_words %>% group_by(words) %>% summarize(count = n()) %>%  slice_max(order_by = count, n = 10)
+
+#might want to add an index? better to do that up top before tokenizing
+sports_words %>% group_by(Story, words) %>% summarize(count = n()) %>%  slice_max(order_by = count, n = 10)
+```
+## Stop words
+Let's explore the dataset called `stop_words`, which is built in to the tidytext package. 
+```{r}
+#explore it
+```
+How many lexicons are there? 
+How many words are there in each lexicon?
+
+
+*Do you want more dictionary options? Try the "stopwords" package.  It has additional stop words dictionaries, including support for foreign languages.*
+```{r}
+str(stopwords::data_stopwords_nltk)
+```
+
+What happens to our stories if we remove the stopwords?
+```{r}
+sports_words %>% anti_join(stop_words[stop_words$lexicon == "SMART", ], by =c("words" = "word")) %>%
+  group_by(Story, words) %>% summarize(count = n()) %>% filter(count > 1)
+```
+
+```{r}
+#do we want to check which stopwords were removed?
+
+sports_words %>% inner_join(stop_words, by = c("words" = "word")) %>% distinct(words) %>% View()
+```
+
+
+## Pre-processing and first explorations
+
+### 2. Tokenization
+Before we can analyze unstructured text data, we often need to transform it into structured form through a series of pre-processing steps. One of those steps is tokenization. To illustrate how to tokenize text, let's start with our "favorite" nursery rhyme:
+  
+```{r}
+rhyme <-
+  c(
+    "Hey, diddle, diddle,",
+    "The cat and the fiddle,",
+    "The cow jumped over the moon;",
+    "The little dog laughed",
+    "To see such sport,",
+    "And the dish ran away with the spoon."
+  )
+
+rhyme
+```
+
+Before we tokenize the rhyme, let's convert it to a tibble and add a number for each line:
+
+```{r}
+rhyme <- tibble(line=1:6, text = rhyme)
+
+rhyme
+```
+
+Now we are ready to tokenize our text. To do this, we make use of the `unnest_tokens()` function from the `tidytext` package.
+
+```{r}
+library(tidytext)
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words")
+```
+
+Notice that we set `token = "words"`. This specifies the granularity at which we intend to tokenize (words). We could also set `token = "ngrams"` and `n = 2`. This means that we intend to tokenize with bigrams.
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "ngrams", n = 2)
+```
+
+What if we want to use whole sentences as tokens? Easy. We set `token = "sentences"`.
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "sentences")
+```
+
+After we tokenize we can answer simple questions like "how many words?"
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  nrow()
+```
+
+
+Or questions like "how many words per line?"
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  group_by(line) %>%
+  summarize(wordcount = n())
+```
+
+*Counting words can be useful if we care about volume of text. For example, maybe our poems aren't successful and we're worried they are too long for a nursery rhyme. We could check various poems for lengths and see how we fall in the distribution. Maybe we think that longer poems are predictive of poetry books making more money, so we want average poem-length to add to a regression analysis. As soon as you have numbers, you can start doing numbery-things.*
+
+Another approach looks at frequency of words, in which case it's often helpful to remove words that are very common in the language but don't provide a lot of analytical value when trying to understand the content of the text 
+
+### 3. Stop Words
+The `tidytext` package provides a dataset of common stop words. We can use this dataset to remove stop words from our data by using an `anti_join()`. To do this, we first need to import the stop words dictionary into our environment:
+
+```{r}
+data("stop_words")
+stop_words
+```
+
+Then we remove the stop words from our text by using the `anti_join()` function:
+
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(stop_words, by = "word")
+```
+
+Notice that words like "the" and "and" are now gone.
+
+### 4. Custom Stop Words
+The `tidytext` stop words come from three different lexicons (or dictionaries) - `onix`, `SMART` and `snowball`.
+
+```{r}
+stop_words
+```
+
+We can get the number of words from each lexicon:
+
+```{r}
+stop_words %>%
+  count(lexicon)
+```
+
+We can also create our own list of stop words. For example, let's assume that we want to treat the words "diddle" and "fiddle" as stop words. We start by creating a new stop words dictionary with those two words:
+```{r}
+new_stop_words <- tibble(
+  word = c("diddle", "fiddle"),
+  lexicon = c("custom")
+)
+new_stop_words
+```
+Then we combine the new dictionary with the existing one to create a new dictionary of stop words called `custom_stop_words`:
+  
+```{r}
+custom_stop_words <-
+  bind_rows(new_stop_words, stop_words)
+
+custom_stop_words
+```
+
+We can get a count of the number of words in each lexicon:
+  
+```{r}
+custom_stop_words %>%
+  count(lexicon)
+```
+
+And just like we did with the default dictionary, we can use our custom dictionary to remove stop words in our text:
+  
+```{r}
+rhyme %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  anti_join(custom_stop_words, by = "word")
+```
+

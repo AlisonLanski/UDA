@@ -1,0 +1,236 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same} % disable monospaced font for URLs
+\hypersetup{
+  pdftitle={Analyzing Text: Preliminaries},
+  pdfauthor={Unstructured Data Analytics},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Analyzing Text: Preliminaries}
+\author{Unstructured Data Analytics}
+\date{}
+
+\begin{document}
+\maketitle
+
+\hypertarget{well-well-well-what-do-we-have-here}{%
+\section{Well well well, What do we have
+here?}\label{well-well-well-what-do-we-have-here}}
+
+\emph{First explorations of a new dataset}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(tidyverse)}
+\FunctionTok{library}\NormalTok{(stringr)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{lets-read-in-some-data-and-check-it-out}{%
+\subsection{Let's read in some data and check it
+out}\label{lets-read-in-some-data-and-check-it-out}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#read it in}
+\CommentTok{\#sports \textless{}{-} read\_csv("???/UDA Fall 2023 Stories.csv")}
+\end{Highlighting}
+\end{Shaded}
+
+How can we explore this dataset to find out what it offers us?
+
+\hypertarget{bag-of-words-methods}{%
+\subsection{``Bag of words'' methods}\label{bag-of-words-methods}}
+
+\emph{How do we find the words?} \emph{What issues might we run into?}
+
+\hypertarget{dividing-and-counting}{%
+\subsubsection{Dividing and Counting}\label{dividing-and-counting}}
+
+Can you count how many words there are in one Story? In all the stories?
+Can you tell me how many times a particular word shows up in one Story?
+In all the stories?
+
+\hypertarget{is-there-an-easier-way}{%
+\subsection{Is there an easier way?}\label{is-there-an-easier-way}}
+
+Yes, of course, this is R.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#load package}
+\end{Highlighting}
+\end{Shaded}
+
+Divide and prep
+
+What changes were made from the starting text to the version?
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#write code to explore as needed}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{counts-are-surprisingly-useful}{%
+\subsection{Counts are surprisingly
+useful}\label{counts-are-surprisingly-useful}}
+
+\hypertarget{which-words-are-most-common-overall}{%
+\subsubsection{Which words are most common
+overall?}\label{which-words-are-most-common-overall}}
+
+\hypertarget{which-words-are-most-common-in-each-story}{%
+\subsubsection{Which words are most common in each
+story?}\label{which-words-are-most-common-in-each-story}}
+
+Can you create a top-five list of words for the whole file? Can you
+create a top-five list of words for each document? \emph{Store these as
+new objects called ``top\_by\_file'' and ``top\_by\_doc''}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#everyone loves a "top" list}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{can-we-get-a-better-list-of-common-words}{%
+\subsection{Can we get a better list of common
+words?}\label{can-we-get-a-better-list-of-common-words}}
+
+Yes, of course.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#load the data}
+\end{Highlighting}
+\end{Shaded}
+
+How many lexicons are there? How many words are there in each lexicon?
+\emph{Do you want more dictionary options? Try the ``stopwords''
+package. It has additional stop words dictionaries, including support
+for foreign languages.}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#explore lexicons}
+\end{Highlighting}
+\end{Shaded}
+
+What happens to our counts if we remove the stopwords using the SMART
+lexicon?
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#remove SMART words}
+\end{Highlighting}
+\end{Shaded}
+
+Can we see which stopwords were removed?\\
+(Are there any we might want to keep?)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#review what we lost}
+\end{Highlighting}
+\end{Shaded}
+
+
+\end{document}

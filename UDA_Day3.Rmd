@@ -1,0 +1,221 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'UDA Challenge Lab: Processing & Visualizing Text'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Preliminaries
+Load basic packages
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidytext)
+```
+
+
+# Start with the same data as Day 2
+
+You'll want to work in steps today
+1) Read in the original data file as `dat`
+2) Tokenize by words and store the result as `dat_words`
+3) Create overall counts in `dat_counts`
+4) Create story-by-story counts in `story_counts`
+
+We want 3 different dataframes so we can compare things below
+```{r}
+#read in data
+agrep(pattern = "lacrosse", x = c("Lacrosse", "lacrosse", "lacrasse", "tennis"), costs = 100)
+#tokenize
+
+#create count-based data frames
+
+
+```
+
+# HMMM do I want them to do stuff by CATEGORY instead of by STORY today? Will need to have data with categories --- OOHHH can clean that up with regex or lowercase or whatever. I LIKE IT.
+
+# MEANS I need NEW data for them for the lab (with categories)
+
+  
+## Task 1
+### Use ggplot to visualize your data.
+Can you create a bar chart for the top five words in the whole corpus?
+Can you create a bar chart for the top five words in each document?
+
+*Use dat_counts and story_counts dynamically to get your top 5 wordlists and feed them into ggplot*
+*"Dynamically" means don't overwrite them*
+
+Challenge 1: Can you make the bar charts horizontal, so the words are on the y-axis and the bars extend from them to the right?
+
+```{r}
+#ggplot bar chart #1
+
+```
+
+Challenge 2: Can you use facet_wrap to get a different bar chart for each document in the corpus?
+```{r}
+#ggplot bar chart #2
+
+```
+
+
+
+## Task 2
+### Create a wordcloud to visualize your data
+```{r echo = FALSE, eval = FALSE}
+#you'll probably need to install this package --
+#run and then delete the chunk if you want
+install.packages("wordcloud")
+```
+
+```{r}
+#load new packages
+library(wordcloud)
+
+#view help
+help(wordcloud)
+```
+
+Take a look at the help file for the wordcloud function.  
+  
+  
+You'll need to use a minimum of two arguments:  
+1) the dataframe column that has your words for the "words" argument (use $ notation in the function)  
+2) the dataframe column that has your counts for the "freq" argument (use $ notation in the function)  
+
+After you get those two arguments working
+3) Try adding an argument to adjust the color
+4) Try adding an argument to reduce the total number of words
+
+
+*Use the dat_counts data*
+
+```{r}
+#your wordcloud here
+```
+
+Explore some variation in the package. Try the same wordcloud, but omit the freq argument and see what happens
+```{r}
+#your no-freq wordcloud here
+```
+
+#### Explain the difference between the two wordclouds.  Is the difference explained in the help page documentation? 
+
+
+
+## Task 3
+Custom stopwords? Or do that next time? >> Yeah let's do that on Monday
+
+Reddit scrape?
+
+
+
+  
+## Let's read in some data and check it out
+
+```{r}
+#read it in
+sports <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories.csv")
+library(wordcloud)
+library(tidytext)
+```
+How can we explore this dataset to find out what it offers us?
+```{r}
+#explore!
+sports <- sports %>% mutate(index = row_number())
+sports_tokens <- unnest_tokens(tbl = sports, output = words, input = Story, token = "words")
+
+top_5 <- sports_tokens %>% group_by(index, words) %>% summarize(count = n()) %>% slice_max(order_by = count, n = 5)
+
+wordcloud(words = top_5$words, freq = top_5$count, colors = top_5$count)
+ggplot(
+  data = top_5,
+  aes(x = words, y = count)) +
+geom_point() +
+facet_wrap(~index)
+```
+
+
+## "Bag of words" methods
+
+*How do we find the words?*
+*What issues might we run into?*
+
+### Dividing and Counting
+Can you count how many words there are in one Story? In all the stories?
+Can you tell me how many times a particular word shows up in one Story? In all the stories? 
+```{r}
+#let's count
+
+```
+## Is there an easier way?
+Yes, of course, this is R.
+```{r}
+#load package
+
+```
+Divide and prep
+```{r}
+#use package
+
+```
+What changes were made from the starting text to the version? 
+```{r}
+#write code to explore as needed
+
+
+```
+
+
+## Counts are surprisingly useful
+
+### Which words are most common overall? 
+### Which words are most common in each story? 
+
+Can you create a top-five list of words for the whole file? 
+Can you create a top-five list of words for each document?
+*Store these as new objects called "top_by_file" and "top_by_doc"*
+
+```{r}
+#everyone loves a "top" list
+
+```
+
+## Can we get a better list of common words?
+Yes, of course. 
+
+```{r}
+#load the data
+
+```
+How many lexicons are there? 
+How many words are there in each lexicon?
+*Do you want more dictionary options? Try the "stopwords" package.  It has additional stop words dictionaries, including support for foreign languages.*
+```{r}
+#explore lexicons
+```
+
+What happens to our counts if we remove the stopwords using the SMART lexicon?
+```{r}
+#remove SMART words
+
+```
+Can we see which stopwords were removed?  
+(Are there any we might want to keep?)
+```{r}
+#review what we lost
+
+```
+

@@ -1,0 +1,113 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Preliminaries'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Well well well, What do we have here? 
+*First explorations of a new dataset*
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#load initial packages
+library(tidyverse)
+library(stringr)
+```
+
+  
+## Let's read in some data and check it out
+
+```{r}
+#read it in
+sports <- read_csv("???/UDA Fall 2023 Stories.csv")
+```
+How can we explore this dataset to find out what it offers us?
+```{r}
+#explore!
+
+```
+
+
+## "Bag of words" methods
+
+*How do we find the words?*
+*What issues might we run into?*
+
+### Dividing and Counting
+Can you count how many words there are in one Story? In all the stories?
+Can you tell me how many times a particular word shows up in one Story? In all the stories? 
+```{r}
+#let's count
+
+```
+## Is there an easier way?
+Yes, of course, this is R.
+```{r}
+#load package
+
+```
+Divide and prep
+```{r}
+#use package
+
+```
+What changes were made from the starting text to the version? 
+```{r}
+#write code to explore as needed
+
+
+```
+
+
+## Counts are surprisingly useful
+
+### Which words are most common overall? 
+### Which words are most common in each story? 
+
+Can you create a top-five list of words for the whole file? 
+Can you create a top-five list of words for each document?
+*Store these as new objects called "top_by_file" and "top_by_doc"*
+
+```{r}
+#everyone loves a "top" list
+
+```
+
+## Can we get a better list of common words?
+Yes, of course. 
+
+```{r}
+#load the data
+
+```
+How many lexicons are there? 
+How many words are there in each lexicon?
+*Do you want more dictionary options? Try the "stopwords" package.  It has additional stop words dictionaries, including support for foreign languages.*
+```{r}
+#explore lexicons
+```
+
+What happens to our counts if we remove the stopwords using the SMART lexicon?
+```{r}
+#remove SMART words
+
+```
+Can we see which stopwords were removed?  
+(Are there any we might want to keep?)
+```{r}
+#review what we lost
+
+```
+

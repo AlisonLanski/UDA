@@ -24,7 +24,7 @@ hot_links <- c(alt_rock = c("https://www.billboard.com/charts/rock-songs/"),
 # Saturday dates. I'd like to go back 10 years, so I'm going to pick the 
 # first saturday in 2011 and count forward from there:
 
-first_date <- as.Date("2011-01-01")
+first_date <- as.Date("2013-01-01")
 
 current_date <- Sys.Date()
 
@@ -115,5 +115,5 @@ all_goat_songs <- future_map_dfr(unlist(goat_links), general_scrape_function)
 plan("sequential")
 
 save(all_hot_songs, all_goat_songs,
-     file = "data/billboard_hot_song_links.RData")
+     file = "data/billboard_hot_song_links_2023.RData")
 
