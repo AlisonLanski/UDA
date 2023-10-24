@@ -17,6 +17,8 @@ df_print: paged
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
+#Today's Main Question:  
+
 ## Preliminaries
 Load basic packages
 ```{r echo = TRUE, warning = FALSE, message = FALSE}
@@ -25,63 +27,94 @@ library(tidytext)
 ```
 
 
-# Start with the same data as Day 2
+# Start with the revised data: Prep it
 
 You'll want to work in steps today
-1) Read in the original data file as `dat`
-2) Tokenize by words and store the result as `dat_words`
-3) Create overall counts in `dat_counts`
-4) Create story-by-story counts in `story_counts`
 
-We want 3 different dataframes so we can compare things below
+ 1. Read in the revised data file as `dat`
+ 2. Tokenize by words and store the result as `dat_words`
+ 3. Create overall counts (all documents together) in `dat_counts`
+ 4. Create story-by-story counts in `story_counts`
+ 5. *Challenge:* Create sport-by-sport counts in `sport_counts`
+
+We want 3-4 different dataframes so we can compare things below
 ```{r}
 #read in data
-agrep(pattern = "lacrosse", x = c("Lacrosse", "lacrosse", "lacrasse", "tennis"), costs = 100)
+
+
+#explore
+
+
 #tokenize
+
 
 #create count-based data frames
 
 
 ```
 
-# HMMM do I want them to do stuff by CATEGORY instead of by STORY today? Will need to have data with categories --- OOHHH can clean that up with regex or lowercase or whatever. I LIKE IT.
 
-# MEANS I need NEW data for them for the lab (with categories)
 
   
-## Task 1
-### Use ggplot to visualize your data.
-Can you create a bar chart for the top five words in the whole corpus?
-Can you create a bar chart for the top five words in each document?
+# Task 1: ggplot to visualize count data
+Note: the behavior of your data below will depend a little bit on how you create counts. If you use `group_by`, your data will retain a grouped structure by default.  If you use `count`, your data will be treated like a standard dataframe instead of structurally grouped.  
+  
+## Plot 1
 
-*Use dat_counts and story_counts dynamically to get your top 5 wordlists and feed them into ggplot*
-*"Dynamically" means don't overwrite them*
+*Start with the full data: `dat_counts` and build up your code piece by piece*
+  
+ * Can you create a bar chart that shows words and their wordcounts?  
+ * Can you limit your bar chart to show only the top (x) words? (Pick a value for X)
+ * Can you customize the title?
+ * *Challenge:* Can you flip your axes so the words are on the y axis and the counts are on the x axis?
 
-Challenge 1: Can you make the bar charts horizontal, so the words are on the y-axis and the bars extend from them to the right?
 
 ```{r}
 #ggplot bar chart #1
 
 ```
 
-Challenge 2: Can you use facet_wrap to get a different bar chart for each document in the corpus?
+#### Question:  Are there any key subjects or ideas that pop out when you look at the most common words?  
+    
+  
+## Plot 2
+
+*Switch to the `story_counts` or `sport_counts` data* 
+  
++Start with the same code as above; consider a smaller value of (X) for space and legibility
++*Challenge:* Do you see each sport separately? If not, can you add a `facet_wrap` to your plot? 
 ```{r}
 #ggplot bar chart #2
 
 ```
 
 
+#### Question: Pick 2-3 stories or sports and look at their keywords in particular.  Is there any kind of theme that comes out?  
+Remember that our top words for Story 1 showed that family and time were key ideas, through top words like "brother" and "year".   
+*This kind of analysis works better with a lot more data, but you get the idea*  
 
-## Task 2
-### Create a wordcloud to visualize your data
+
+
+#### Question: Do the top words tend to help you identify the sports? Explain with an example. Why might this happen (or not happen)?
+ 
+
+
+#### Question: Compare the top words in the small graphs to each other, or to the larger graph (with all the data together).  Comment on something interesting.  Literally anything intersting.  
+
+
+# Task 2: Create a wordcloud to visualize your data
+
+Yes, you can do this manually in ggplot by setting different random x and y values for each word and then replacing a scatterplot point with the word itself but... that's a lot of work.
+
+Instead. use this new-to-you package
 ```{r echo = FALSE, eval = FALSE}
-#you'll probably need to install this package --
-#run and then delete the chunk if you want
+# you'll probably need to install this package
+# this chunk of code will be ignored when you knit 
 install.packages("wordcloud")
 ```
 
 ```{r}
-#load new packages
+#load new package
 library(wordcloud)
 
 #view help
@@ -91,13 +124,15 @@ help(wordcloud)
 Take a look at the help file for the wordcloud function.  
   
   
-You'll need to use a minimum of two arguments:  
-1) the dataframe column that has your words for the "words" argument (use $ notation in the function)  
-2) the dataframe column that has your counts for the "freq" argument (use $ notation in the function)  
+You'll need to use a minimum of two arguments: 
 
+1. the dataframe column that has your words for the "words" argument (use $ notation in the function)  
+2. the dataframe column that has your counts for the "freq" argument (use $ notation in the function)  
+  
 After you get those two arguments working
-3) Try adding an argument to adjust the color
-4) Try adding an argument to reduce the total number of words
+
+3. Try adding an argument to adjust the color
+4. Try adding an argument to reduce the total number of words
 
 
 *Use the dat_counts data*
@@ -111,111 +146,12 @@ Explore some variation in the package. Try the same wordcloud, but omit the freq
 #your no-freq wordcloud here
 ```
 
-#### Explain the difference between the two wordclouds.  Is the difference explained in the help page documentation? 
+#### Explain the difference between the two wordclouds.  Is the difference discussed in the help page documentation? 
 
 
 
-## Task 3
-Custom stopwords? Or do that next time? >> Yeah let's do that on Monday
 
-Reddit scrape?
 
 
 
   
-## Let's read in some data and check it out
-
-```{r}
-#read it in
-sports <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories.csv")
-library(wordcloud)
-library(tidytext)
-```
-How can we explore this dataset to find out what it offers us?
-```{r}
-#explore!
-sports <- sports %>% mutate(index = row_number())
-sports_tokens <- unnest_tokens(tbl = sports, output = words, input = Story, token = "words")
-
-top_5 <- sports_tokens %>% group_by(index, words) %>% summarize(count = n()) %>% slice_max(order_by = count, n = 5)
-
-wordcloud(words = top_5$words, freq = top_5$count, colors = top_5$count)
-ggplot(
-  data = top_5,
-  aes(x = words, y = count)) +
-geom_point() +
-facet_wrap(~index)
-```
-
-
-## "Bag of words" methods
-
-*How do we find the words?*
-*What issues might we run into?*
-
-### Dividing and Counting
-Can you count how many words there are in one Story? In all the stories?
-Can you tell me how many times a particular word shows up in one Story? In all the stories? 
-```{r}
-#let's count
-
-```
-## Is there an easier way?
-Yes, of course, this is R.
-```{r}
-#load package
-
-```
-Divide and prep
-```{r}
-#use package
-
-```
-What changes were made from the starting text to the version? 
-```{r}
-#write code to explore as needed
-
-
-```
-
-
-## Counts are surprisingly useful
-
-### Which words are most common overall? 
-### Which words are most common in each story? 
-
-Can you create a top-five list of words for the whole file? 
-Can you create a top-five list of words for each document?
-*Store these as new objects called "top_by_file" and "top_by_doc"*
-
-```{r}
-#everyone loves a "top" list
-
-```
-
-## Can we get a better list of common words?
-Yes, of course. 
-
-```{r}
-#load the data
-
-```
-How many lexicons are there? 
-How many words are there in each lexicon?
-*Do you want more dictionary options? Try the "stopwords" package.  It has additional stop words dictionaries, including support for foreign languages.*
-```{r}
-#explore lexicons
-```
-
-What happens to our counts if we remove the stopwords using the SMART lexicon?
-```{r}
-#remove SMART words
-
-```
-Can we see which stopwords were removed?  
-(Are there any we might want to keep?)
-```{r}
-#review what we lost
-
-```
-
