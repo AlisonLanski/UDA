@@ -40,16 +40,30 @@ You'll want to work in steps today
 We want 3-4 different dataframes so we can compare things below
 ```{r}
 #read in data
-dat <- read_csv("???/UDA Fall 2023 Stories v2.csv")
+dat <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories v2.csv")
 
 #explore
-
+glimpse(dat)
 
 #tokenize and prep
-
+dat_words <- dat %>% 
+  unnest_tokens(output = words, input = story, token = "words") %>%
+  
+  #challenge removal; can also use pattern of "[a-zA-Z]+"
+  filter(str_detect(words, pattern = "[:alpha:]")) %>%
+  
+  #stopwords, using all lexicons; 
+  ## okay to limit before joining or to limit using baseR within the antijoin 
+  anti_join(stop_words, by = c("words" = "word"))
+  ## limiting within looks like: stop_words[stop_words$lexicon == "SMART", ]
 
 #create count-based data frames
+dat_counts <- dat_words %>% count(words)
+story_counts <- dat_words %>% group_by(id, words) %>% summarize(count = n())
 
+#challenge count
+sport_counts <- dat_words %>% mutate(sport = tolower(sport)) %>%
+  group_by(sport, words) %>% summarize(count = n())
 
 ```
 
@@ -96,7 +110,20 @@ If you want a consistent placement, set a seed before you build the wordcloud
 (And if you don't like the picture it makes, try different seeds)  
 ```{r}
 #your wordcloud here
-
+wordcloud(dat_counts$words, freq = dat_counts$n,
+          
+          # supply a vector of color names (small N to large N)
+          # or supply a column from the data, like dat_counts$n
+          # you can get fancy and work with color palettes, using RColorBrewer
+          colors = c("lightblue", "darkgreen", "darkblue"),
+          
+          # to change the size-range allowed for words
+          # put the bigger number first
+          scale = c(4, 0.25),
+          
+          # either one of these arguments will limit the words
+          #min.freq = 6,
+          max.words = 40)
 ```
 
 
@@ -124,6 +151,39 @@ Note: the behavior of your data below will depend a little bit on how you create
 ```{r}
 #ggplot bar chart #1
 
+#data
+dat_counts %>%  #start with the data
+  
+#top X words
+  slice_max(order_by = n, n = 20) %>%  
+  
+#challenge - sort them in a way that will "stick" for ggplot below  
+  # this is actually a function for factors, that is setting the factor levels for words based on n
+  mutate(words = reorder(words, n)) %>%
+  
+#start the plot
+  ggplot(.,
+         
+  #use the words as X and the count colunn for Y
+         aes(x = words, y = n)) +
+  
+  #you can use col or bar (but bar needs the stat = "identity" for pre-counted data) 
+  #you do NOT need both
+  geom_col() +
+  geom_bar(stat = "identity") +  
+  
+  #challenge -- swap axes
+  #this needs to be googled probably "how to flip axes in ggplot" or something
+  coord_flip() +
+  
+  #title
+  ggtitle("Top 20 words in UDA Fall 2023 stories") +
+  
+  #Additional cleanup (not required)
+  ylab("count") + #remember, N is the original y axis -- yes flipping is weird
+  theme_minimal()
+
+
 
 ```
 
@@ -141,11 +201,98 @@ Note: the behavior of your data below will depend a little bit on how you create
 Are your facets tiny? You can make them bigger by adding dimensions to the {r} bar at the top, like this: {r fig.height = 14, fig.width=8}.  And you can also change the number of rows or columns for the plot of facets if you add relevant arguments inside facet_wrap 
 
 ```{r}
-#ggplot bar chart #2
+#ggplot bar chart #2 -- sports option
+
+#data
+sport_counts %>%  #start with the data
+  
+#top X words
+  slice_max(order_by = count, n = 5) %>%  
+  
+#use the reorder_within function from the tidytext package 
+  # regular reorder works for 1 big dataset
+  # reorder within works when we want different orders by groups   
+  mutate(words = reorder_within(x = words, by = count, within = sport)) %>%
+  
+#start the plot
+  ggplot(.,
+         
+  #use the words as X and the count colunn for Y
+         aes(x = words, y = count)) +
+  
+  #you can use col or bar (but bar needs the stat = "identity" for pre-counted data) 
+  #you do NOT need both
+  geom_col() +
+  geom_bar(stat = "identity") +  
+  
+  #challenge -- swap axes
+  #this needs to be googled probably "how to flip axes in ggplot" or something
+  coord_flip() +
+  
+  #title
+  ggtitle("Top 5 words in each sport") +
+  
+  #Additional cleanup (not required)
+  ylab("count") + #remember, N is the original y axis -- yes flipping is weird
+  theme_minimal() +
+  
+# #New challenge section
+  # add a facet_wrap -- set the scales so it looks good
+  facet_wrap(~sport, scales = "free") +
+  
+  # then add this so each plot will sort separately --- but we ALSO need an adjustment above
+  scale_x_reordered()
+
 
 ```
 
+```{r fig.height = 14, fig.width=8}
+#ggplot bar chart #2 -- stories option
 
+#data
+story_counts %>%  #start with the data
+  
+#top X words
+  slice_max(order_by = count, n = 4) %>%  
+  
+  #filter(count >= 2) %>%
+  
+#use the reorder_within function from the tidytext package 
+  # regular reorder works for 1 big dataset
+  # reorder within works when we want different orders by groups   
+  mutate(words = reorder_within(x = words, by = count, within = id)) %>%
+  
+#start the plot
+  ggplot(.,
+         
+  #use the words as X and the count colunn for Y
+         aes(x = words, y = count)) +
+  
+  #you can use col or bar (but bar needs the stat = "identity" for pre-counted data) 
+  #you do NOT need both
+  geom_col() +
+  geom_bar(stat = "identity") +  
+  
+  #challenge -- swap axes
+  #this needs to be googled probably "how to flip axes in ggplot" or something
+  coord_flip() +
+  
+  #title
+  ggtitle("Top 4 words in each story") +
+  
+  #Additional cleanup (not required)
+  ylab("count") + #remember, N is the original y axis -- yes flipping is weird
+  theme_minimal() +
+  
+# #New challenge section
+  # add a facet_wrap -- set the scales so it looks good
+  facet_wrap(~id, scales = "free", nrow = 7, ncol = 5) +
+  
+  # then add this so each plot will sort separately --- but we ALSO need an adjustment above
+  scale_x_reordered()
+
+
+```
 
 
 
