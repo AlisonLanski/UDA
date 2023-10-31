@@ -28,7 +28,7 @@ library(tidytext)
 
 ```{r}
 # read it in and clean it up
-dat <- read_csv("??/UDA Fall 2023 Stories v2.csv") %>%
+dat <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories v2.csv") %>%
   mutate(sport = tolower(sport)) #baseR version of stringr::str_to_lower()
 
 
@@ -36,7 +36,16 @@ dat <- read_csv("??/UDA Fall 2023 Stories v2.csv") %>%
 # and a total wordcount for the whole corpus too
 total_counts <- dat %>% 
   unnest_tokens(output = word, input = story, token = "words") %>%
-  group_by(word)
+  group_by(word) %>%
+  summarize(count = n()) %>%
+  mutate(total = sum(count)) %>%
+  arrange(desc(count)) %>%
+
+# add some context
+# the pct numbers are TINY and hard to interpret
+# a standard practice is to scale them into a rate: frequency per 10,000 words 
+  mutate(term_pct = count / total,  
+         term_rate_10000 = count / total * 10000)
 
 
 
@@ -52,7 +61,14 @@ Your choice of group: by person *or* by sport
 
 ```{r}
 #make new counts
-
+group_counts <- dat %>% 
+  unnest_tokens(output = word, input = story, token = "words") %>%
+  group_by(sport, word) %>%
+  summarize(count = n()) %>%
+  mutate(total = sum(count)) %>%
+  arrange(desc(count)) %>%
+  mutate(term_freq = count / total,
+         term_freq_10000 = term_freq * 10000)
 ```  
 
 ### Check relative rates -- two ways to write the same thing
@@ -88,7 +104,12 @@ For example: How many documents use "goal?" How many documents use "brother"? Ho
   
 Let's calculate this and add it to our `group_counts` dataframe
 ```{r}
-# now with document frequencies
+document_count <- length(unique(dat$sport))
+
+group_counts <- group_counts %>%
+  group_by(word) %>%
+  mutate(docs_with_word = n()) %>%
+  mutate(doc_freq = docs_with_word/document_count)
   
 ```
 
@@ -108,7 +129,15 @@ Intuition: Important words are used a lot within a document, and are rarely used
 Formula: term_frequency * log(inverse(document_frequency))
 
 ```{r}
-#let's calculate TF-IDF "by hand"
+group_counts %>%
+  mutate(tf_idf = term_freq * log(1/doc_freq)) %>%
+    mutate(tf_idf_nolog = term_freq * (1/doc_freq)) %>%
+  arrange(desc(tf_idf)) %>%
+  group_by(sport) %>%
+  slice_max(order_by = tf_idf, n = 4) %>%
+  View()
+
+#can do slice_min to find stopwords
 ```
 
 ### Ways to adjust TF-IDF to solve potential problems
