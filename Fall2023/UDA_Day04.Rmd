@@ -1,0 +1,155 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Advanced Counting'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# How can we normalize wordcounts to make them more meaningful?
+
+### Basic method - Scaling the counts
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load initial packages
+library(tidyverse)
+library(tidytext)
+```
+
+```{r}
+# read it in and clean it up
+dat <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories v2.csv") %>%
+  mutate(sport = tolower(sport)) #baseR version of stringr::str_to_lower()
+
+
+# get counts for all words in the whole corpus 
+# and a total wordcount for the whole corpus too
+total_counts <- dat %>% 
+  unnest_tokens(output = word, input = story, token = "words") %>%
+  group_by(word) %>%
+  summarize(count = n()) %>%
+  mutate(total = sum(count)) %>%
+  arrange(desc(count)) %>%
+
+# add some context
+# the pct numbers are TINY and hard to interpret
+# a standard practice is to scale them into a rate: frequency per 10,000 words 
+  mutate(term_pct = count / total,  
+         term_rate_10000 = count / total * 10000)
+
+
+
+```
+
+For only one document, scaling the numbers doesn't provide much beyond counting.  
+This gets more useful when we compare documents of different lengths.  It's a way to normalize. 
+
+### Let's scale counts by group
+Your choice of group: by person *or* by sport
+ * copy and adjust the code from above, starting with `total_counts <- dat`
+ * save the result as `group_counts` instead of `total_counts`
+
+```{r}
+#make new counts
+group_counts <- dat %>% 
+  unnest_tokens(output = word, input = story, token = "words") %>%
+  group_by(sport, word) %>%
+  summarize(count = n()) %>%
+  mutate(total = sum(count)) %>%
+  arrange(desc(count)) %>%
+  mutate(term_freq = count / total,
+         term_freq_10000 = term_freq * 10000)
+```  
+
+### Check relative rates -- two ways to write the same thing
+For example: which person/sport uses "the" the most, relative to the other groups? 
+```{r}
+#dplyr version
+group_counts %>%
+  arrange(desc(term_freq_10000)) %>%
+  filter(str_detect(word, "^the$"))  #I think this is worth a little regex
+
+#base R version
+group_counts[order(group_counts[group_counts$word == "the", ]$term_freq_10000, 
+                   decreasing = TRUE),]
+```
+
+Try your own: Copy and paste the chunk from above and try a different word
+
+
+```{r}
+
+```
+
+
+## How "important" is a particular word to a particular document?
+**Importance** can often be measured by **count** or **frequency**, but sometimes important words aren't the most common, but the most unique. This is particularly true if we're trying to understand what makes some documents *different* from each other.
+
+For example, if you read a "how to play soccer" and "how to play lacrosse" guide, they are both going to talk about balls, fields, goals, players, lines, shots, passing, fouls, etc.  But there may be specific vocabulary that appears more (or more often) in one document than in the other. For example, lacrosse might talk about the "cradle"; soccer might talk about "headers": these would be potentially very relevant, even if they don't show up very often.
+
+#### How do get to an idea of uniqueness or importance? 
+We already have frequency measures (count/total). We can add a measure for the proportion of documents that contain a particular word.  
+  
+For example: How many documents use "goal?" How many documents use "brother"? How may documents use "the"? (Out of the total number of documents).  
+  
+Let's calculate this and add it to our `group_counts` dataframe
+```{r}
+document_count <- length(unique(dat$sport))
+
+group_counts <- group_counts %>%
+  group_by(word) %>%
+  mutate(docs_with_word = n()) %>%
+  mutate(doc_freq = docs_with_word/document_count)
+  
+```
+
+### Now we get fancy: TF-IDF
+We want to take our term_pct and our doc_ratio, and combine them to normalize the data.
+Check the slide deck for a full explanation of the math.
+
+TF-IDF = Term Frequency - Inverse Document Frequency  
+
+Intuition: Important words are used a lot within a document, and are rarely used in other documents.  
+
+ * "used with a document" is the count, weighted by total wordcount (term frequency)
+ * "used in other documents" is the document frequency we just calculated
+ * to get "RARELY used in other documents", we take the inverse document frequency 
+ * because IDF is usually much larger than TF, we take the log of IDF as a way to re-scale it
+
+Formula: term_frequency * log(inverse(document_frequency))
+
+```{r}
+group_counts %>%
+  mutate(tf_idf = term_freq * log(1/doc_freq)) %>%
+    mutate(tf_idf_nolog = term_freq * (1/doc_freq)) %>%
+  arrange(desc(tf_idf)) %>%
+  group_by(sport) %>%
+  slice_max(order_by = tf_idf, n = 4) %>%
+  View()
+
+#can do slice_min to find stopwords
+```
+
+### Ways to adjust TF-IDF to solve potential problems
+Sometimes TF-IDF is a little too constrained. 
+```{r}
+
+```
+
+# Can we look at phrases instead of words?
+Of course we can! We tokenize differently, but the other steps are the same.  
+Note that *phrases* are repeated less often than *individual words* so you typically need a lot of data (or very consistent data) to get good results.  
+```{r}
+
+```
+
