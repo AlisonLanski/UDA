@@ -1,0 +1,123 @@
+---
+html_document:
+  toc: yes
+author: "Your Name Here"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Assignment #2 - Fall 2023 - Insights from Counting'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+# Preliminaries
+Load basic packages and data 
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidytext)
+```
+
+Bring in data and explore a little. Decide what you want to analyze. Set up a new column for high/medium/low engagement.
+```{r}
+getwd()
+dat <- read_csv("C:/Users/alanski/Downloads/reddit_example.csv")
+```
+
+
+
+# Counting
+
+### Find "most common words" for the corpus (all together or grouped) 
+Preprocess and get counts/frequencies
+```{r}
+
+#create counts and remove stopwords (slightly different code options shown below)
+
+common_words_all <- unnest_tokens(dat, output = "word", input = text, token = "words") %>%
+  anti_join(get_stopwords(source = "smart"), by = "word") %>%
+  count(word, sort = T)
+
+smartwords <- stop_words[stop_words$lexicon == "SMART", ]
+
+common_words_grouped <- unnest_tokens(dat, output = word, input = text, token = "words") %>%
+  anti_join(smartwords, by = "word") %>%
+  group_by(date_utc, word) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+#limit to "MOST COMMON"  -- N value is kind of arbitrary
+
+#based on the words that come out as results, which includes NA, I would want to go remove null values from above
+#i might also want to remove https (although it does indicate that people are posting links, so that could be interesting)
+
+# to remove, I'd want to see a something like filter(!is.na(text)) added into the pipe
+common_words_all %>% slice_max(order_by = n, n = 15)
+
+
+common_words_grouped %>%
+  slice_max(order_by = count, n = 5)
+```
+
+### Find "most common phrases" (all together or grouped)
+Preprocess and get counts/frequencies
+```{r}
+common_phrases_all <- unnest_tokens(dat, output = "phrase", input = text, token = "ngrams", n = 2) %>%
+  #STOP WORDS?
+  count(phrase, sort = T)
+
+smartwords <- stop_words[stop_words$lexicon == "SMART", ]
+
+common_phrases_grouped <- unnest_tokens(dat, output = phrase, input = text, token = "ngrams", n = 2) %>%
+  #STOPWORDS?
+  group_by(date_utc, phrase) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+#limit to "MOST COMMON"  -- N value is kind of arbitrary
+
+#based on the words that come out as results, which includes NA, I would want to go remove null values from above
+#i might also want to remove https (although it does indicate that people are posting links, so that could be interesting)
+
+# to remove, I'd want to see a something like filter(!is.na(text)) added into the pipe
+common_phrases_all %>% head(15)
+
+
+common_phrases_grouped %>%
+  slice_max(order_by = count, n = 3)
+```
+
+### Find "most important words" for the engagement levels
+Preprocess and get tf-idf values based on engagement
+```{r}
+summary(dat$comments)
+
+#ENGAGEMENT
+important_words_all <- dat %>%
+  mutate(engagement = case_when(comments > 53 ~ "3_High", 
+                                comments > 4 ~ "2_Medium",
+                                TRUE ~ "1_Low")) %>%
+  unnest_tokens(output = word, input = text, token = "words") %>%
+  group_by(engagement, word) %>%
+  summarize(count = n()) %>%
+  bind_tf_idf(term = word, document = engagement, n = count) %>%
+  slice_max(order_by = tf_idf, n = 8) %>%
+  arrange(desc(engagement), desc(tf_idf))
+
+
+```
+
+# Final Recommendation -- Thoughts and Visual
+*Find the flowers amid all the weeds.* 
+
+```{r}
+
+```
+

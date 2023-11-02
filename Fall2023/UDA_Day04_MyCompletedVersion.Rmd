@@ -131,11 +131,9 @@ Formula: term_frequency * log(inverse(document_frequency))
 ```{r}
 group_counts %>%
   mutate(tf_idf = term_freq * log(1/doc_freq)) %>%
-    mutate(tf_idf_nolog = term_freq * (1/doc_freq)) %>%
   arrange(desc(tf_idf)) %>%
   group_by(sport) %>%
-  slice_max(order_by = tf_idf, n = 4) %>%
-  View()
+  slice_max(order_by = tf_idf, n = 4)
 
 #can do slice_min to find stopwords
 ```
@@ -143,13 +141,49 @@ group_counts %>%
 ### Ways to adjust TF-IDF to solve potential problems
 Sometimes TF-IDF is a little too constrained. 
 ```{r}
-
+group_counts %>%
+  mutate(tf_idf = term_freq * log(1/doc_freq)) %>%
+    mutate(tf_idf_smooth = term_freq * (1 + 1/doc_freq)) %>%
+  arrange(desc(tf_idf_smooth)) %>%
+  group_by(sport) %>%
+  slice_max(order_by = tf_idf_smooth, n = 4) %>%
+  select(-term_freq, -term_freq_10000, -docs_with_word)
 ```
 
 # Can we look at phrases instead of words?
 Of course we can! We tokenize differently, but the other steps are the same.  
 Note that *phrases* are repeated less often than *individual words* so you typically need a lot of data (or very consistent data) to get good results.  
 ```{r}
+
+snowball <- stop_words$word[stop_words$lexicon == "snowball"]
+
+#just count them
+dat %>% 
+  unnest_tokens(output = bigram, input = story, token = "ngrams", n = 2) %>%
+  #bigram stopwords? you have to make it
+  separate(bigram, into = c("word1", "word2"), remove = F) %>%
+  filter(!word1 %in% snowball,  !word2 %in% snowball) %>%
+  count(bigram, sort = TRUE) %>%
+  filter(n > 1)
+
+dat %>% 
+  unnest_tokens(output = trigram, input = story, token = "ngrams", n = 3) %>%
+  #trigram stopwords? you have to make it
+  separate(trigram, into = c("word1", "word2", "word3"), remove = F) %>%
+  filter(!word1 %in% snowball,  !word2 %in% snowball, !word3 %in% snowball) %>%
+  count(trigram, sort = TRUE) %>%
+  filter(n > 1)
+
+
+
+#tf-idf by sport
+dat %>% unnest_tokens(output = bigram, input = story, token = "ngrams", n = 2) %>%
+  count(sport, bigram) %>%
+  #bigram stopwords? you have to make it
+ bind_tf_idf(term = bigram, document = sport, n = n) %>%
+  arrange(desc(tf_idf)) %>%
+  group_by(sport) %>%
+  slice_max(order_by = tf_idf, n = 2)
 
 ```
 
