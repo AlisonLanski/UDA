@@ -1,0 +1,333 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'UDA Challenge Lab: Processing & Visualizing Text'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+#Today's Main Question:  
+
+## Preliminaries
+Load basic packages
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidytext)
+```
+
+
+# Start with the revised data: Prep it
+
+You'll want to work in steps today
+
+ 1. Read in the revised data file as `dat`
+ 2. Create `dat_words` which is tokenized by individual words and only has relevant words. *Challenge:* also remove "words" that are 100% numbers / keep only the "words" that are characters or characters-and-numbers
+ 3. Create overall counts (all documents together) in `dat_counts`
+ 4. Create story-by-story counts in `story_counts`
+ 5. *Challenge:* Create sport-by-sport counts in `sport_counts`
+
+We want 3-4 different dataframes so we can compare things below
+```{r}
+#read in data
+dat <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories v2.csv")
+
+#explore
+glimpse(dat)
+
+# tokenize and prep
+  # prep steps here:
+  # tokenize by word (word is default)
+  # remove "smart" lexicon stopwords
+  # keep only the rows with letters (will eliminate 100% number "words")
+  # fix capitalization of sports
+dat_words <- dat %>% 
+  unnest_tokens(output = "word", input = "story", token = "words") %>%
+  anti_join(get_stopwords(source = "smart"), by = "word") %>%
+  filter(str_detect(word, pattern = "[:alpha:]")) %>%
+  mutate(sport = tolower(sport))
+
+#this is another way to fix the sport column
+#if you don't want to do dplyr
+dat_words$sport <- tolower(dat_words$sport)
+
+#create count-based data frames
+# use the count function for quick counting
+dat_counts <- dat_words %>% 
+  count(word, sort = TRUE)
+
+story_counts <- dat_words %>%
+  count(id, word, sort = TRUE)
+
+sport_counts <- dat_words %>% 
+  count(sport, word, sort = TRUE)
+
+# use the dplyr flow below if you need to retain groups for later
+story_counts <- dat_words %>%
+  group_by(id, word) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+sport_counts <- dat_words %>%
+  group_by(sport, word) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+# I want the groups, so I'm running the group_by version second
+# which means it will "stick" as my final data
+
+#see the progression
+head(dat)
+```
+As we adjust the grouping of the data, we count by different categories and in different ways. This will set us up later if we want to look at the data different ways or compare results depending on the grouping  
+  
+# Task 1: Create a wordcloud to visualize your data
+## Everyone loves a good wordcloud
+
+Yes, you can do this manually in ggplot by setting different random x and y values for each word and then replacing a scatterplot point with the word itself but... that's a lot of work.
+
+Instead. use this new-to-you package
+```{r echo = FALSE, eval = FALSE}
+# you'll probably need to install this package
+# this chunk of code will be ignored when you knit 
+install.packages("wordcloud")
+```
+
+```{r}
+#load new package
+library(wordcloud)
+```
+
+
+Take a look at the help file for the wordcloud function.  
+
+```{r echo = FALSE, eval = FALSE}
+#view help
+help(wordcloud)
+```
+
+
+  
+  
+You'll need to use a minimum of two arguments: 
+
+1. the dataframe column that has your words for the "words" argument (use $ notation in the function)  
+2. the dataframe column that has your counts for the "freq" argument (use $ notation in the function)  
+  
+After you get those two arguments working, look at the help page and try out two MORE optional arguments. These arguments will (in some way) change the appearance of your plots.  
+  
+  
+*Use the dat_counts data*  
+  
+Note that the 2D position of the words is random by default.  
+If you want a consistent placement, set a seed before you build the wordcloud  
+(And if you don't like the picture it makes, try different seeds)  
+```{r}
+#your wordcloud here
+wordcloud(dat_counts$word, dat_counts$n, max.words = 40, colors = c("blue", "forestgreen", "yellow", "orange"))
+```
+
+This wordcloud uses mandatory arguments for the words and the wordcounts, then uses optional arguments to try to improve the overall look. There are many other optional arguments that can be used instead of these (or in addition) which you can see from the help page.  
+  
+“Team” and “Game” really stand out, but the context you get from having more words is nice too. Looking at the final version, I would probably switch out the yellow color for something else, since it doesn’t have very good contrast. And I might want to use a single color scale (dark to light) instead of different hues.    
+  
+    
+#### Put on your Data Viz hat. How did your two "optional arguments" affect the preattentive qualities of your visualization? Are your updates better than the default arguments? Why/why not?
+
+The different colors help separate the data into categories (high counts, mid-counts, lower-mid-counts, and small counts) which is preattentive. Limiting the number of words is not preattentive, but does reduce clutter by simplifying the picture. The size of the words is preattentive as well (larger draws attention to higher wordcounts) and the range of word-size can be adjusted by a differnet optional argument, not used in thise example.  
+  
+  
+# Task 2: ggplot to visualize count data  
+  
+Note: the behavior of your data below will depend a little bit on how you created your counts above. If you use `group_by`, your data will retain a grouped structure by default.  If you use `count`, your data will be treated like a standard dataframe instead of structurally grouped.  
+  
+## Plot 1
+
+*Start with the full data: `dat_counts` and build up your code piece by piece*
+  
+ * Can you create a bar chart that shows words and their wordcounts?  
+ * Can you limit your bar chart to show only the top (x) words? (Pick a value for X)
+ * Can you customize the title?
+ * *Challenge:* Can you flip your axes so the words are on the y-axis and the counts are on the x-axis? (look it up!)
+ * *Challenge:* Can you automatically sort the bars from most-to-fewest? This needs to happen within a *mutate* using the `reorder` function (look it up!) 
+
+
+```{r}
+#ggplot bar chart #1
+
+dat_counts %>%
+  #get the top n words
+  slice_max(order_by = n, n = 7) %>%
+  
+  #update the structure of the "word" column to be internally sorted
+  #mutate needs the format mutate(final_column_name = something_else)
+  #      where "something else" is a value or a function with an output
+  #      here, our function will reorder the whole dataframe so the words
+  #      are in frequency-order in a way that will "stick" for the graph below
+  mutate(word = reorder(word, n)) %>%
+  
+  #plot it
+  ggplot(
+       aes(x = n, y = word, fill = desc(n))) +
+        #alternative: set x = word, y = n and then below
+        #use: coord_flip()
+  
+        # I also added some color because it's more fun
+
+  #make it a bar; the show.legend gets rid of my color legend
+  geom_col(show.legend = "FALSE") +
+  #alternative: geom_bar(stat = "identity")
+  
+  #give it a title (why not fix your axis too!)
+  labs(title = "Top 7 words",
+       x = "count") + 
+  #alternative: ggtitle("Top 7 words") 
+  
+  #make it look better as a final touch
+  theme_minimal()
+```
+    
+This is pretty simple but does add a nice visual piece. To make it even better, I could try to put the words onto the bars and label the bar-ends with counts. Then I wouldn’t even need the axes at all, for a much cleaner graph. For a simple barchart like this, it’s also fine to include more words — how many depends (to some extent) on the space you have available.  
+
+#### Question:  Are there any key subjects or ideas that pop out when you look at the most common words?  
+
+Activity (games/playing) and time (time/year)  
+      
+## Plot 2
+
+*Switch to the `story_counts` or `sport_counts` data* 
+  
+ * Start with the same code as above; consider a smaller value of (X) for space and legibility
+ * *Challenge:* Do you see each story or sport separately? If not, can you add a `facet_wrap` to your plot?  Can you use an argument inside `facet_wrap` to show only the relevant words for each chart?
+ * *Challenge:* Can you get sorting working for each facet? You'll need the tidytext function `reorder_within` (look it up!) instead of the `reorder` you used before.
+
+Are your facets tiny? You can make them bigger by adding dimensions to the {r} bar at the top, like this: {r fig.height = 14, fig.width=8}.  And you can also change the number of rows or columns for the plot of facets if you add relevant arguments inside facet_wrap   
+  
+### Start here with individual story-based counts
+```{r}
+#ggplot bar chart #2
+
+#start with a copy-paste of the code above, then adjust to get what we want
+#if something isn't working as expected, start by checking column names
+# sometimes you have different colnames in different dataset
+# sometimes you just type something wrong
+# I had to fix a "words" into a "word" and some "n" into "count"
+
+#data
+story_counts %>%  #start with the data
+  
+#top X words
+  
+  #this will work group-by-group IF your data is pre-grouped appropriately
+  #if it isn't, add grouping with line that says
+  # group_by(story) %>%
+  # if you use "count" to create counts, this step is necessary
+  
+  slice_max(order_by = count, n = 4) %>%  
+  
+#use the reorder_within function from the tidytext package 
+  # regular reorder works for 1 big dataset
+  # reorder within works when we want different orders by groups  
+  # and when those groups are holding character values
+  # the argument "within" is where you provide the grouped column
+  mutate(word = reorder_within(x = word, by = count, within = id)) %>%
+  
+#start the plot
+  ggplot(.,
+         
+  #use the words as X and the count column for Y
+         aes(x = count, y = word, fill = desc(count))) +
+  
+  # you can use col or bar (but bar needs the stat = "identity" for pre-counted data) 
+  # you do NOT need both
+  geom_col(show.legend = FALSE) +
+  
+  #title
+  ggtitle("Top 4 words in each story") +
+  
+  #Additional cleanup, looks nicer, yes you can do this with labs() instead
+  xlab("count") + 
+  theme_minimal() +
+  
+# #New challenge section
+  # add a facet_wrap -- set the scales so it looks good
+  # the scales adjustment is what lets the words be different for each plot
+  # adjust rows & columns to get a nicer setup
+  facet_wrap(~id, scales = "free_y", nrow = 7, ncol = 5) +
+  
+  # then add this so each plot will sort separately --- 
+  # but we ALSO need the reorder_within above so it knows how to order it
+  scale_y_reordered()
+```
+ 
+#### Question: Can you find any facets where the top words help you ID the sport, even if the sport name is missing or if you ignored it?    
+  
+Stories 6 and 8 are both about baseball. 6 talks about the outfield, which is particular to baseball (or softball), and 8 talks about the world series and the cubs. 20 talks about a pool, which would have to be swimming (or diving).  
+  
+  
+
+#### Question: Pick 2-3 stories or sports and look at their keywords in particular.  Is there any kind of theme for the story or for the sport that comes out?  
+Remember that our top words for Story 1 showed that family and time were key ideas, through top words like "brother" and "year".   
+  
+*This kind of analysis works better with a lot more data, but you get the idea*  
+  
+  
+Several of the stories seem to be about performing well in tournaments/playoffs – the final stage of a competition series. Words like “championship” “playoff” “tournament”. I see this 11, 13, 19, 25, and maybe others.  
+  
+Story 8 has really nicely related words, and is clearly about the cubs winning the world series.  
+   
+
+
+#### Question: Compare the top words in the small graphs to each other, or to the larger graph (with all the data together).  Comment on something interesting.  Literally anything interesting.  Text analysis is more like English class than Stats some of the time.
+
+**One example observation**  
+In the whole-document top words, “game”, “team”, “time”, “year” were really important. But those particular words show up in the top words for only a few of the individual stories here. This could be because the other stories use them but less frequently, or it could be that a few stories are “overcontributing” to our small dataset. Maybe they have a lot more overall words or maybe the use a small number of distinct words.  
+  
+**Another example observation**  
+I also find it interesting that “other people” seems to be an important element of the stories. In the whole-document top words, we had “team”. In the individual stories, we get words for more specific people like “brother”, “parents”, friend”, in addition to bigger groups of people like “team” and “crowd”.  
+  
+### Now the same code for sports, without all the comments above
+```{r fig.height = 14, fig.width=8}
+sport_counts %>%
+  slice_max(order_by = count, n = 4) %>%
+  mutate(word = reorder_within(x = word, by = count, within = sport)) %>%
+  ggplot(
+       aes(x = count, y = word)) +
+  geom_col(aes(fill = count)) +  #this time, I put the color down here
+  labs(title = "Top 4 words") +
+  theme_minimal() +
+  facet_wrap(~sport, scales = "free_y") +
+  scale_y_reordered()
+```
+
+My charts are probably larger than yours because I adjusted the figure size in the {r} chunk label at the top  
+  
+#### Question: Can you find any facets where the top words help you ID the sport, even if the sport name is missing or if you ignored it?    
+  
+Yes, tennis has great sport-specific words like “wimbledon” and “federer”. Golf has “green” and “hole”. Swimming has “pool”. Basketball has “dribble”. Baseball has “hit”. Some of these aren’t enough by themselves, because they can be used for multiple sports (dribbling in soccer or hits in footbal, for example), but they would be helpful.  
+  
+  
+
+#### Question: Pick 2-3 stories or sports and look at their keywords in particular.  Is there any kind of theme for the story or for the sport that comes out?  
+Remember that our top words for Story 1 showed that family and time were key ideas, through top words like "brother" and "year".   
+  
+*This kind of analysis works better with a lot more data, but you get the idea*  
+  
+  
+Diving has a theme of body parts, so perhaps it’s talking about an injury situation or about good form for diving.  
+Waterpolo has a theme of playoffs, so the story is probably about the end of the season.  
+  
+
+#### Question: Compare the top words in the small graphs to each other, or to the larger graph (with all the data together).  Comment on something interesting.  Literally anything interesting.  Text analysis is more like English class than Stats some of the time.  
+  
+One sample observation Baseball and basketball are both focused on ball movement (“ball” and “hit” for baseball; “ball” and “dribble” for basketball). Golf has some too (“ball”, “shot”, “hit”) but not as many overall. It’s intersting that the other ball sports in this data don’t have those kinds of words up top (football, lacrosse, soccer, waterpolo, etc). This suggests that the baseball, basketball, and golf stories could be more focused on actions performed by the storyteller, whereas the other sports are more focused on the outcome of a whole team in a game situation.  

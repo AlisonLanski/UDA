@@ -1,0 +1,375 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Advanced Counting'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# How can we normalize wordcounts to make them more meaningful?
+
+### Basic method - Scaling the counts
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load initial packages
+library(tidyverse)
+library(tidytext)
+```
+
+```{r}
+# read it in and clean it up
+dat <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories v2.csv") %>%
+  mutate(sport = tolower(sport)) #baseR version of stringr::str_to_lower()
+```
+
+Then, we need to clean it up, count, and implement scaling.  
+This code scales by total wordcount and provides a human-readable version of that too.  
+```{r}
+# get counts for all words in the whole corpus 
+# and a total wordcount for the whole corpus too
+total_counts <- dat %>% 
+  unnest_tokens(output = word, input = story, token = "words") %>%
+  group_by(word) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count)) %>%
+  
+  #here, we get the total corpus wordcount and add that number to each row
+  mutate(totalcount = sum(count)) %>%
+
+  #here, we compute frequency
+  mutate(word_frequency = count/totalcount) %>%
+  
+  #here, we scale it up to be easier for people to read
+  #and to be more human-friendly, we also round
+  mutate(word_rate_10000 = round(count*10000/totalcount,1))
+
+total_counts
+```
+
+I have deliberately kept the stopwords so that we can compare this result to what happens below with TF-IDF. If you DID want to remove stopwords, you could definitely do it, but should do so AFTER getting total wordcounts. You need to acknowledge the presence of stopwords in your text even if you don’t want to count them.  
+  
+Notice that for only one document, scaling the numbers doesn’t provide much new information. It’s just another way to look at simple counts.  
+This process gets more useful when we compare documents of different lengths. It’s a way to normalize.  
+  
+### Let's scale counts by group
+Your choice of group: by person *or* by sport
+
+ * copy and adjust the code from above, starting with `total_counts <- dat`
+ * save the result as `group_counts` instead of `total_counts`
+
+```{r}
+# make new counts
+# this code is the same as before, except I'm grouping and arranging by "sport" in addition to "word"
+group_counts <- dat %>% 
+  unnest_tokens(output = word, input = story, token = "words") %>%
+  group_by(sport, word) %>%
+  summarize(count = n()) %>%
+  arrange(sport, desc(count)) %>%
+  mutate(totalcount = sum(count)) %>%
+  mutate(word_frequency = count/totalcount) %>%
+  mutate(word_rate_10000 = round(count*10000/totalcount, 1))
+
+#look at it -- I just want the top 2 words per sport right now
+group_counts %>%
+  slice_max(order_by = word_rate_10000, n = 2)
+```  
+This table lets me see that the totalcount is being calculated differently for each group. This is happening because we did our mutate on grouped data. Notice how scaling levels the playing field. Baseball and football both have “the” as the most common word, by football has more of them (75). But in the “word_rate_10000” we can see that baseball actually has a higher rate of “the” (859 vs 650 per 10,000). This kind of scaling is really important if you want to evaluate shorter and longer documents on the same footing.  
+  
+### Check relative rates -- two ways to write the same thing
+For example: which person/sport uses "the" the most, relative to the other groups? 
+```{r}
+#dplyr version
+#you do have to write a little regex, but I think this code is worth it
+#it's so much easier to read than the base
+group_counts %>%
+  arrange(desc(word_rate_10000)) %>%
+  filter(str_detect(word, "^the$")) 
+
+
+#base R version
+
+#yikes, I'm not good at sorting and filtering all at the same time in base R.
+#all in one line is REALLY UGLY and I messed it up in the original code
+# total_counts[which(total_counts$word == "the"),][order(total_counts[which(total_counts$word == "the"), ]$word_rate_10000, decreasing = TRUE),]
+
+#break it out to simpler base R -- better, but still kind of hard to follow:
+one_word <- group_counts[group_counts$word == "the", ] 
+one_word[order(one_word$word_rate_10000, decreasing = TRUE), ]
+```
+Ok, so this shows that even though THE is really common all over, basketball and baseball are using it a lot more than other sports stories.  
+  
+Try your own: Copy and paste the chunk from above and try a different word  
+
+```{r}
+#dplyr version
+group_counts %>%
+  arrange(desc(word_rate_10000)) %>%
+  filter(str_detect(word, "^field$")) 
+```
+Even though “field” is used 4x more in baseball than soccer, it’s only about twice as frequent after we scale. This kind of calculation is more “fair” than simple counting, unless your texts are pretty even in length.  
+
+## How "important" is a particular word to a particular document?
+**Importance** can often be measured by **count** or **frequency**, but sometimes important words aren't the most common, but the most unique. This is particularly true if we're trying to understand what makes some documents *different* from each other.
+
+For example, if you read a "how to play soccer" and "how to play lacrosse" guide, they are both going to talk about balls, fields, goals, players, lines, shots, passing, fouls, etc.  But there may be specific vocabulary that appears more (or more often) in one document than in the other. For example, lacrosse might talk about the "cradle"; soccer might talk about "headers": these would be potentially very relevant, even if they don't show up very often.
+
+#### How do get to an idea of uniqueness or importance? 
+We already have frequency measures (count/total). We can add a measure for the proportion of documents that contain a particular word.  
+  
+For example: How many documents use "goal?" How many documents use "brother"? How may documents use "the"? (Out of the total number of documents).  
+  
+Let's calculate this and add it to our `group_counts` dataframe
+```{r}
+# now with document frequencies
+# first we need to know how many total documents
+# when looking at the data by sports, each "combined set of sports stories"
+# counts as a document
+
+#this is a base way to get the number of groups
+document_count <- length(unique(group_counts$sport))
+ 
+## Let's build Document Frequency by hand
+group_counts <- group_counts %>%
+  group_by(word) %>%
+  
+  #here we count the number of sports that have each word
+  mutate(docs_with_word = n()) %>%
+  
+  #here we create our DF value
+  mutate(doc_freq = docs_with_word/document_count)
+
+#check calculations
+group_counts %>% arrange(desc(doc_freq), word)
+  
+```
+We can see that each individual word with a document frequency of 1 (10/10) appears 10 times in our grouped count data. This is what we want to see.  
+    
+Limiting to particular sport, we can see how common its words are in OTHER documents  
+```{r}
+group_counts %>% 
+  filter(sport == 'lacrosse') %>%
+  arrange(desc(doc_freq), word)
+```
+Only 10 words are shared in common with the other documents, and they’re all common stopwords.  
+  
+### Now we get fancy: TF-IDF
+We want to take our term_pct and our doc_ratio, and combine them to normalize the data.
+Check the slide deck for a full explanation of the math.
+
+TF-IDF = Term Frequency - Inverse Document Frequency  
+
+Intuition: Important words are used a lot within a document, and are rarely used in other documents.  
+
+ * "used with a document" is the count, weighted by total wordcount (term frequency)
+ * "used in other documents" is the document frequency we just calculated
+ * to get "RARELY used in other documents", we take the inverse document frequency 
+ * because IDF is usually much larger than TF, we take the log of IDF as a way to re-scale it
+
+Formula: term_frequency * log(inverse(document_frequency))
+
+```{r}
+#based on the columns we made above
+group_counts %>%
+  mutate(manual_tf_idf = word_frequency * log(1/doc_freq)) %>%
+
+    #remove a few columns to make the results easier to see
+  select(-totalcount, -word_frequency, -docs_with_word)
+```
+Notice that the stopwords now have tf-idf scores of 0 even though their word_rate_10000 is really high. That’s because they are represented in all documents, and therefore are less “special” or “important” to any single particular document.  
+  
+TF-IDF is usually sorted top-to-bottom as well  
+```{r}
+group_counts %>%
+  mutate(manual_tf_idf = word_frequency * log(1/doc_freq)) %>%
+
+    #remove a few columns to make the results easier to see
+  select(-totalcount, -word_frequency, -docs_with_word) %>%
+  
+  arrange(sport, desc(manual_tf_idf)) %>%
+  head(10)
+```
+Those baseball words look way more baseball-y and important than our standard stopwords from before. And we didn’t even have to remove the stopwords to get this.  
+  
+### Do we have to do TF-IDF by hand? Of course not!
+Use the tidytext package function instead
+```{r}
+#you do have to pre-count your data for this to work
+group_counts %>% 
+  
+  #this function needs the columns where you store the words, the grouping variable, and the counts
+  bind_tf_idf(term = word, document = sport, n = count) %>%
+  
+  #remove a few columns to make the results easier to see
+  select(-totalcount, -word_frequency, -docs_with_word) %>%
+  
+  #sort it 
+  arrange(sport, desc(tf_idf)) 
+```
+Notice that the “tf” computed by the package function can be multiplied by 10000 again to get our word rate. IDF isn’t usually interesting on its own. The TF-IDF values here should match the manual calculations above.  
+  
+### Ways to adjust TF-IDF to solve potential problems
+Sometimes TF-IDF is a little too constrained. 
+```{r}
+# Want to implement smoothing? (extra idea, see slides)
+# In that case, we have to compute TF-IDF manually so we can adjust the calculation, for example:
+
+group_counts %>%
+  mutate(manual_tf_idf = word_frequency * log(1+ 1/doc_freq)) %>%
+
+    #remove a few columns to make the results easier to see
+  select(-totalcount, -word_frequency, -docs_with_word) %>%
+  
+  arrange(sport, desc(manual_tf_idf)) %>%
+  head(10)
+```
+We do have stopwords sneaking back in here, but not as many as before. Smoothing may be more effective with a larger number of documents or with longer texts.  
+  
+# Can we look at phrases instead of words?
+Of course we can! We tokenize differently, but the other steps are the same.  
+Note that *phrases* are repeated less often than *individual words* so you typically need a lot of data (or very consistent data) to get good results. 
+```{r}
+#this code is copied from the top of this script
+#the only essential updates are:
+# # the unnest_tokens token becomes "ngrams"
+# # we have to add an argument "n" to unnest_tokens, to define the phrase length 
+
+# we SHOULD make optional updates too, for example, rename the output to ngram, then carry that update down through the code
+dat %>% 
+  unnest_tokens(output = word, input = story, token = "ngrams", n = 3) %>%
+  group_by(word) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count)) %>%
+  mutate(totalcount = sum(count)) %>%
+  #mutate(word_frequency = count/totalcount) %>%
+  mutate(word_rate_10000 = count*10000/totalcount)
+```
+The counting methods are completely identical after we tokenize differently. We can still compute frequencies and look at relative values. “when I was” shows up a lot, which is interesting because it suggests we are getting a lot of stories about individuals in a prior time period. and we have multiple stories also about freshman year.  
+  
+These kinds of phrases can provide richer information than single words like “year”.  
+
+### Ngram construction note
+Notice that when creating ngrams, the words are allowed to overlap. So “when I was” and “I was a” probably come from a sentence starting with: “when I was a….”.  
+Each possible group of 3 words is being pulled out. We are crawling along word-by-word to start our groups of 3.  
+  
+We use prefixes with small ngrams.  
+  
+ * A word is a unigram
+ * A 2 word phrase is a bigram
+ * A 3 word phrase is a trigram
+  
+### What about stopwords?
+You may have noticed some less useful ngrams above, like “it was a”. 100% stopwords. If we’re looking at straight counts, we might want to remove them. If we’re going to end up doing TF-IDF, we don’t have to.  
+   
+We don’t have “ngram stopword lexicons”, so the process is a little clunky.  
+  
+First, I am going to save my stopwords out in a separate vector.  
+```{r}
+#I'm using snowball because it's the smallest list and I want to remove as few words as possible
+snowball <- stop_words$word[stop_words$lexicon == "snowball"]
+
+head(snowball)
+```
+
+Then, tokenize by phrase
+```{r}
+dat %>% 
+  unnest_tokens(output = bigram, input = story, token = "ngrams", n = 2)
+```
+
+Then, to remove stopword bigrams, we have to find the bigrams that are composed of 2 stopwords.
+```{r}
+#this is one way to do it
+dat %>%
+  unnest_tokens(output = bigram, input = story, token = "ngrams", n = 2) %>%
+  
+  #break the column into two new named columns, keep the original column
+  separate(bigram, into = c("word1", "word2"), remove = F) %>%
+  
+  #remove rows that have a stopword in both
+  #correct placement of ! and () is super-important for the logic to work
+  filter(!(word1 %in% snowball & word2 %in% snowball))
+```
+
+If we compare above, we’ve lost a lot of the bigram phrases. With this code, we are still keeping phrases with only one stopword. If we want to remove them, we’d need to adjust our filtering logic.  
+  
+Here’s an adjustment that removes the row if either is a stopword  
+```{r}
+dat %>%
+  unnest_tokens(output = bigram, input = story, token = "ngrams", n = 2) %>%
+  separate(bigram, into = c("word1", "word2"), remove = F) %>%
+  #we can just look in each column sequentially instead of looking at them at the same time
+  filter(!word1 %in% snowball, 
+         !word2 %in% snowball)
+```
+Now that we know how to remove stopwords, we can finally count without them.  
+I’m using the strict removal method (no stopwords anywhere) because I want to see meaningful two-word phrases.  
+
+```{r}
+dat %>%
+  unnest_tokens(output = bigram, input = story, token = "ngrams", n = 2) %>%
+  separate(bigram, into = c("word1", "word2"), remove = F) %>%
+  filter(!word1 %in% snowball, 
+         !word2 %in% snowball) %>%
+  count(bigram, sort = TRUE) %>%
+  
+  #there are so many infrequent options, that I want to limit a little
+  filter(n > 2)
+```
+This is helpful. We might be able to guess at “Notre” and “dame” if we saw them separately. But “big” and “ten” might not be correctly interpreted on their own. As a two-word phrase they have a real meaning to us.  
+
+Note that as your phrases get longer, they’re more likely to include a stopword but still be meaningful. For example “going to work” or “hit the ball”. For longer phrases, we might want to exclude ngrams that have a high proportion of stopwords 2/3 or 2/4, for example, instead of 1/4 or 4/4.  
+
+## TF-IDF with ngrams
+Of course we can do this! And we don’t need to remove stopwords either.  
+It’s the same code as before, grouping, tokenizing, counting, TF-IDF. The only difference is how we tokenize, and the related column names.  
+  
+As before, I’ll limit to top results. We get a lot of small counts with small data.  
+```{r}
+#you do have to pre-count your data for this to work
+
+dat %>%
+  unnest_tokens(output = bigram, input = story, token = "ngrams", n = 2) %>%
+  group_by(sport, bigram) %>%
+  summarize(count = n()) %>%
+  bind_tf_idf(term = bigram, document = sport, n = count) %>%
+  arrange(sport, desc(tf_idf))  %>%
+  slice_max(order_by = tf_idf, n = 1)
+
+```
+
+We are getting some ngrams with stopwords sneaking in. Even so, tf-idf is telling us that “the cubs” is very important specifically to baseball, whereas “my friend” is important to golf (based on the data we have).  
+  
+If too many stopword-related phrases are getting in, sometimes larger datsets can help, or you can choose to exclude them at this point from our result set, to help better phrases stand out.  
+  
+```{r}
+dat %>%
+  unnest_tokens(output = bigram, input = story, token = "ngrams", n = 2) %>%
+  group_by(sport, bigram) %>%
+  summarize(count = n()) %>%
+  bind_tf_idf(term = bigram, document = sport, n = count) %>%
+  arrange(sport, desc(tf_idf))  %>%
+
+  #this is the same code from above  
+  separate(bigram, into = c("word1", "word2"), remove = F) %>%
+  filter(!word1 %in% snowball, 
+         !word2 %in% snowball) %>%
+  #except I'll remove the separated words when I'm done with them (new)
+  select(-word1, -word2) %>%
+  
+  #now if I slice, I get potentially more interesting phrases
+  slice_max(order_by = tf_idf, n = 1)
+```
+Without any stopwords, these results are a little better. The interaction of stopwords with phrases in tf-idf is a little wonky. What you get depends on your data. What you want to do about it depends on your goals.  
+  
+## Visualizing
+For any of the things done here, it’s simple to take your final dataframe and create visualizations out of it. You can create wordclouds, bar graphs, or faceted bar graphs just like you did with simple counts. The only different in plotting is that you’ll have to use the correct column names for the data you want to look it. For that reason, no plotting code is included here. You can copy and adjust the code from Day 3.
