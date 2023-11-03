@@ -1,0 +1,237 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Sentiment Analysis'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# How can we detect if contain positive/negative feeling or specific emotion?
+
+
+
+
+## First Step: Analyze Polarity with Lexicons
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load initial packages
+library(tidyverse)
+library(tidytext)
+```
+
+First step: getting lexicons  
+*For some, you have to download them: switch to the console to approve download*
+```{r}
+bing <- get_sentiments(lexicon = "bing")
+afinn <- get_sentiments(lexicon = "afinn")
+nrc <- get_sentiments(lexicon = "nrc")
+```
+
+  
+### *Question: How do these sentiment lexicons vary in size and structure?*   
+Let's take a look
+```{r}
+glimpse(bing)
+glimpse(afinn)
+glimpse(nrc)
+```
+
+  
+## Let's keep our first focus on polarity
+
+### Question: If we want to use the afin data to score our stories, what general process should we use?
+
+### Question: If we want to use the bing data to score our stories, what is different?
+
+
+## Implementation
+First, we have to get our text data ready
+
+```{r}
+
+#read in
+dat <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories v3.csv")
+
+#explore
+glimpse(dat)
+
+```
+
+ * What columns do we have?
+ * Do we need to fix the sport column again?
+ * Do you think we should remove stopwords? 
+ 
+ 
+Cleanup, as needed.  Prep appropriately for our next step
+```{r}
+dat$sport <- tolower(dat$sport)
+
+dat_words <- dat %>% 
+  unnest_tokens(output = word, input = story, token = "words")
+
+dat_words
+```
+Combine words with sentiment: afinn
+```{r}
+dat_words %>%
+  inner_join(afinn, by = "word")
+```
+
+### Question: What is the polarity of each story?
+How should we aggregate the values?
+```{r}
+dat_words %>%
+  inner_join(afinn, by = "word") %>%
+  group_by(id, feeling) %>%
+  summarize(total_sentiment = sum(value),
+            avg_sentiment = mean(value))
+```
+
+```{r}
+dat_words %>%
+  inner_join(bing, by = "word") %>%
+  group_by(id, sentiment) %>%
+  count() %>%
+  pivot_wider(names_from =  sentiment, values_from = n, values_fill = 0) %>%
+  mutate(percent_positive = round(positive/(positive+negative),3))
+```
+```{r} 
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  group_by(id, feeling, sentiment) %>%
+  count() %>%
+  pivot_wider(names_from =  sentiment, values_from = n, values_fill = 0) %>%
+  mutate(total_score = positive - negative,
+         percent_positive = round(positive/(positive+negative),3)) %>%
+  select(id, feeling, positive, negative, total_score, percent_positive)
+```
+
+
+## Second Step -- Look for particular emotions 
+```{r}
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  group_by(id, feeling, sentiment) %>%
+  count() %>%
+  pivot_wider(names_from =  sentiment, values_from = n, values_fill = 0)
+```
+
+### You can show distributions of sentiment within a document
+```{r}
+library(RColorBrewer)
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  group_by(id, feeling, sentiment) %>%
+  count() %>% 
+  filter(!sentiment %in% c("negative", "positive")) %>%
+  ggplot(
+    aes(x = id, y = n, fill = sentiment)
+  ) +
+  geom_col(position = "fill") +
+  scale_fill_brewer(palette = "Set1") +
+  coord_flip() +
+  theme_minimal() +
+  ggtitle("Sentiment range for each story")
+
+```
+
+Or can focus on the absolute count of sentiment words for one or more emotion
+```{r}
+library(RColorBrewer)
+
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  group_by(id, feeling, sentiment) %>%
+  count() %>% 
+  filter(!sentiment %in% c("negative", "positive")) %>%
+  
+  #add a specific set of emotions if you want to see them
+  filter(sentiment %in% c("joy", "sadness")) %>%
+  
+  ggplot(
+    aes(x = id, y = n, fill = sentiment)
+  ) +
+  geom_col() +
+  scale_fill_brewer(palette = "Set1") +
+  coord_flip() +
+  theme_minimal() +
+  ggtitle("Sentiment range for each story") +
+  facet_wrap(~sentiment)
+```
+How many stories are differently joyful?
+```{r}
+library(RColorBrewer)
+
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  group_by(id, feeling, sentiment) %>%
+  count() %>% 
+  
+  #add a specific set of emotions if you want to see them
+  filter(sentiment %in% c("joy")) %>%
+  
+  ggplot(
+    aes(x = n)
+  ) +
+  geom_histogram() +
+  #scale_fill_brewer(palette = "Set1") +
+  #coord_flip() +
+  theme_minimal() +
+  labs(title = "How many joyful stories are really joyful?",
+       x = "Joyful score", 
+       y = "Number of Stories")
+```
+### MOVING ON....
+
+# Can we view sentiment at a higher level, beyond single words?
+
+Yes, of course we can!  
+
+This capability lets us account (to some extent) for valence shifters.
+
+### Implementing higher-level sentiment
+The tidytext package is set up for word-level only.  That means we have to shift to another package.
+
+```{r}
+library(sentimentr)
+
+story_polarity <- get_sentences(dat) %>%
+  sentiment() %>%
+  group_by(id) %>%
+  summarize(high = max(sentiment),
+            low = min(sentiment),
+            avg = mean(sentiment))
+
+dat %>%
+  get_sentences() %>%
+  sentiment() %>%
+  ggplot(
+    aes(x = sentence_id, y = sentiment)
+  ) +
+  geom_line() +
+  facet_wrap(~id) +
+  theme_void() +
+  geom_hline(aes(yintercept = 0), color = "grey")
+
+
+dat %>%
+  get_sentences() %>%
+  sentiment_by(by = c("sport", "id")) %>%
+  highlight()
+
+
+```
+
+## Lab: lubridate and/or more sentimentr features/graphing
+
+### Prep work for Thursday?  HRM HRM .... 
