@@ -1,0 +1,86 @@
+---
+html_document:
+  toc: yes
+author: "Your Name Here"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Sentiment Prep - Fall 2023'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+# Preliminaries
+Load basic packages and data 
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidytext)
+```
+
+Bring in data and do basic prep
+*Disclosure: I did not test this code. You may need to update the file path. *
+```{r}
+tidy_words <- 
+    #read in the file
+  read_csv("UDA Fall 2023 Stories v3.csv") %>%
+  
+    #fix capitalization in case we want to group by sport later 
+  mutate(sport = tolower(sport)) %>%
+  
+    #break it into individual words, remove whitespace/punctuation, lowercase
+  unnest_tokens(output = word, input = story, token = "words")  #
+
+tidy_words
+```
+
+*Note: The text uses "tidy_books", but we have "tidy_words".*
+
+
+# New Viz Options for Sentiment
+Chapter 2 of Text Mining with R shows several ways to visualize results related to sentiment.  These methods both help to answer the question "which particular positive and negative words are most common in the text?"  
+  
+Use the code in the book; adapt it as needed, but it should more-or-less just work for you.    
+  
+Choose between  
+
+ * Section 2.4: Most positive common positive and negative words
+ https://www.tidytextmining.com/sentiment#most-positive-negative
+ 
+ * Section 2.5: **Comparison** wordcloud
+ https://www.tidytextmining.com/sentiment#wordclouds
+ 
+(Feeling energetic? Do both!)  
+
+#### Requirements
+ * Create one of these sentiment visualizations using our class data (all together, or split by sport - your choice). You can start by copying/typing the code from the correct section of the book.
+ * Add comments to the code that explains in simple language what the code is doing in each line or function. For an example, see my code block above. If you don't know one of the lines, it's okay to look this up or ask someone, including Chat GPT - but mention your resources below.
+ * Provide a final thought about the results of your code
+
+### Your version of the code here (with comments)
+```{r}
+
+```
+
+###############################################
+## Did you need any help with the commenting?  
+ * What did you use? (cheatsheets, stackoverflow, a particular person, chatgpt?)
+ * What parts did you need help with?
+
+
+
+###############################################
+## Provide an interpretation or reaction to what is shown in your viz (final thought)
+
+
+
+
+
+###################################################

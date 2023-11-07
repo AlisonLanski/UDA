@@ -1,0 +1,85 @@
+---
+html_document:
+  toc: yes
+author: "Your Name Here"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Assignment #3 - Fall 2023 - Insights from Sentiment'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+# Preliminaries
+Load basic packages and data 
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidytext)
+```
+
+Bring in data.
+```{r}
+dat <- read_csv("Your CSV file from Assignment #1.csv")
+```
+
+
+
+# Sentiment Basics
+
+### Find sentiment scores for your data
+Get a single score for each post.  
+
+```{r}
+
+```
+
+
+Create an overview of the sentiment in the corpus 
+
+ * If you just looked at polarity (positive vs negative), show how many posts were positive vs negative overall.  
+ * If you looked at the strength of the polarity (5 to -5), break your scores into 3 or more groups (for example: positive, neutral, negative), and show how many posts fall into each group. 
+ 
+You can show this using an aggregated dataframe/table or a plot.  
+```{r}
+
+```
+ 
+   
+### Find the emotions in your data
+For each post, detect emotions.  Then aggregate the whole corpus together.
+Show how many times each emotion appears through the whole corpus.  Is it balanced? Do some emotions dominate?  (Show can be a dataframe/table or a graph)
+```{r}
+
+```
+
+# Sentiment deeper dive
+
+Select either polarity or emotions. Examine the relationship between sentiment and some other element of this dataset. 
+
+
+#### WRITE: Describe your goal (what question do you want to look at?)
+
+
+```{r}
+#data prep code
+```
+
+```{r}
+#visualization code
+```
+
+
+
+
+# Final Thoughts
+*This can be commentary only or commentary plus code/visual*  
+*It does not need to be long.  Quality over quantity*
+

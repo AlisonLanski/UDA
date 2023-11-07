@@ -69,7 +69,7 @@ glimpse(dat)
 
  * What columns do we have?
  * Do we need to fix the sport column again?
- * Do you think we should remove stopwords? 
+ * Do you think we need to remove stopwords? 
  
  
 Cleanup, as needed.  Prep appropriately for our next step
@@ -88,7 +88,7 @@ dat_words %>%
 ```
 
 ### Question: What is the polarity of each story?
-How should we aggregate the values?
+
 ```{r}
 dat_words %>%
   inner_join(afinn, by = "word") %>%
@@ -96,6 +96,7 @@ dat_words %>%
   summarize(total_sentiment = sum(value),
             avg_sentiment = mean(value))
 ```
+### What do the polarity numbers represent? 
 
 ```{r}
 dat_words %>%
@@ -105,6 +106,8 @@ dat_words %>%
   pivot_wider(names_from =  sentiment, values_from = n, values_fill = 0) %>%
   mutate(percent_positive = round(positive/(positive+negative),3))
 ```
+
+
 ```{r} 
 dat_words %>%
   inner_join(nrc, by = "word") %>%
@@ -116,8 +119,34 @@ dat_words %>%
   select(id, feeling, positive, negative, total_score, percent_positive)
 ```
 
+## How might we graph polarity?
+```{r}
+dat_words %>%
+  inner_join(afinn, by = "word") %>%
+  group_by(id, feeling) %>%
+  summarize(total_sentiment = sum(value),
+            avg_sentiment = mean(value)) %>%
+  mutate(polarity = ifelse(total_sentiment > 0, "positive", "negative")) %>%
+  ggplot(
+    aes(x = id, y = total_sentiment, fill = polarity)
+  ) +
+  geom_col()
+```
 
-## Second Step -- Look for particular emotions 
+
+## Which emotions are present in each story?
+### Which emotion is the most prevalent? What is the mix like? 
+```{r}
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  group_by(id, feeling, sentiment) %>%
+  count() %>%
+  filter(!sentiment %in% c("positive", "negative")) %>%
+  group_by(id) %>%
+  slice_max(order_by = n, n = 1)
+```
+
+
 ```{r}
 dat_words %>%
   inner_join(nrc, by = "word") %>%
@@ -126,7 +155,8 @@ dat_words %>%
   pivot_wider(names_from =  sentiment, values_from = n, values_fill = 0)
 ```
 
-### You can show distributions of sentiment within a document
+
+### Let's visualize the mix of emotions within a document
 ```{r}
 library(RColorBrewer)
 dat_words %>%
@@ -165,53 +195,50 @@ dat_words %>%
   scale_fill_brewer(palette = "Set1") +
   coord_flip() +
   theme_minimal() +
-  ggtitle("Sentiment range for each story") +
-  facet_wrap(~sentiment)
+  ggtitle("Sentiment range for each story") #+
+  #facet_wrap(~sentiment)  #uncomment this bit to break the bars out by emotion
 ```
-How many stories are differently joyful?
-```{r}
-library(RColorBrewer)
 
-dat_words %>%
-  inner_join(nrc, by = "word") %>%
-  group_by(id, feeling, sentiment) %>%
-  count() %>% 
-  
-  #add a specific set of emotions if you want to see them
-  filter(sentiment %in% c("joy")) %>%
-  
-  ggplot(
-    aes(x = n)
-  ) +
-  geom_histogram() +
-  #scale_fill_brewer(palette = "Set1") +
-  #coord_flip() +
-  theme_minimal() +
-  labs(title = "How many joyful stories are really joyful?",
-       x = "Joyful score", 
-       y = "Number of Stories")
-```
-### MOVING ON....
 
-# Can we view sentiment at a higher level, beyond single words?
+
+
+
+# What about context: issues like valence?
+## Can we view sentiment at a higher level, beyond single words?
 
 Yes, of course we can!  
 
 This capability lets us account (to some extent) for valence shifters.
 
 ### Implementing higher-level sentiment
-The tidytext package is set up for word-level only.  That means we have to shift to another package.
-
+The tidytext package is set up for word-level only.  That means we have to shift to the `sentimentr` package.  
+  
+Let's find new sentiment values for each story, taking valence into consideration
 ```{r}
 library(sentimentr)
 
 story_polarity <- get_sentences(dat) %>%
   sentiment() %>%
   group_by(id) %>%
-  summarize(high = max(sentiment),
+  summarize(total = sum(sentiment),
+            high = max(sentiment),
             low = min(sentiment),
             avg = mean(sentiment))
 
+story_polarity
+```
+How can we easily check for example sentences or review the scoring more visually?
+```{r}
+dat %>%
+  get_sentences() %>%
+  sentiment_by(by = c("sport", "id")) %>%
+  highlight()
+```
+
+
+## Lab: lubridate and/or more sentimentr features/graphing
+See sentiment trend
+```{r}
 dat %>%
   get_sentences() %>%
   sentiment() %>%
@@ -224,14 +251,31 @@ dat %>%
   geom_hline(aes(yintercept = 0), color = "grey")
 
 
-dat %>%
-  get_sentences() %>%
-  sentiment_by(by = c("sport", "id")) %>%
-  highlight()
+
 
 
 ```
 
-## Lab: lubridate and/or more sentimentr features/graphing
+```{r}
+reddit <-  read_csv(file = paste0("C:/Users/alanski/Downloads/scrape/ahernmadison_9235_2821518_reddit_posts-2.csv"))
+
+reddit_dates <- reddit %>% select(date_utc, title) %>% unnest_tokens(output = word, input = title, token = "words")
+
+reddit_dates %>%
+  mutate(date_monthno = lubridate::month(date_utc),
+         date_weekno = lubridate::week(date_utc),
+         date_week = lubridate::floor_date(date_utc, unit = "week"),
+         date_month = lubridate::floor_date(date_utc, unit = "month"),
+         date_days = lubridate::wday(date_utc)) %>%
+  inner_join(afinn) %>%
+  group_by(date_month) %>%
+  summarize(feeling = mean(value, na.rm = TRUE)) %>%
+  ggplot(
+    aes(x = date_month, y = feeling)
+  ) + 
+  geom_bar(stat = "identity")
+
+
+```
 
 ### Prep work for Thursday?  HRM HRM .... 
