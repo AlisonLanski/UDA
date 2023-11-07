@@ -4,7 +4,11 @@ library(tidytext)
 with_code <- list.files("Fall2023/", recursive = TRUE, pattern = "Completed.Rmd", full.names = TRUE)
 
 docs <- purrr::map(with_code, read_file) %>% 
-  purrr::set_names(c("A", "B", "C")) %>% 
+   # helpful for me when looking at it, not actually necessary
+   # because we just rename the docs by position below
+   # and because we aren't splitting out the data by starting doc
+   # if we want to look at it like that, would need to dynamically add a set_names vector 
+  #purrr::set_names(c("A", "B", "C")) %>%
   purrr::map(data.frame) %>% 
   purrr::list_rbind(names_to = "id") %>%
   dplyr::rename(Text = 2)
