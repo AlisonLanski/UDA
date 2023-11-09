@@ -1,0 +1,156 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Sentiment Analysis'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# How can we detect if documents contain positive/negative feeling or specific emotion?
+
+
+## First Step: Analyze Polarity with Lexicons
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load initial packages
+library(tidyverse)
+library(tidytext)
+```
+
+First step: getting lexicons  
+*For some, you have to download them: switch to the console to approve download*
+```{r}
+bing <- get_sentiments(lexicon = "bing")
+
+```
+
+  
+### *Question: How do these sentiment lexicons vary in size and structure?*   
+Let's take a look
+```{r}
+
+
+```
+
+  
+## Let's keep our first focus on polarity
+
+### Question: If we want to use the afin data to score our stories, what general process should we use?
+
+### Question: If we want to use the bing data to score our stories, what is different?
+
+
+## Implementation
+First, we have to get our text data ready
+
+```{r}
+
+#read in
+dat <- read_csv("???/UDA Fall 2023 Stories v3.csv")
+
+#explore
+glimpse(dat)
+
+```
+
+ * What columns do we have?
+ * Do we need to fix the sport column again?
+ * Do you think we need to remove stopwords? 
+ 
+ 
+Cleanup, as needed.  Prep appropriately for our next step
+```{r}
+
+
+```
+Combine words with sentiment: afinn
+```{r}
+
+```
+
+### Question: What is the polarity of each story?
+
+```{r}
+
+```
+### What do the polarity numbers represent? 
+
+```{r}
+
+```
+
+
+
+## How might we graph polarity?
+```{r}
+
+```
+
+
+## Which emotions are present in each story?
+### Which emotion is the most prevalent? What is the mix like? 
+```{r}
+#which emotion is the most prevalent in each story?
+
+```
+
+
+```{r}
+#what is the mix of emotions like in each story?
+
+```
+
+
+### Let's visualize the mix of emotions within a document
+```{r}
+library(RColorBrewer)
+
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  count(id, feeling, sentiment) %>%
+  filter(!sentiment %in% c("negative", "positive")) %>%
+  ggplot(
+    aes(x = id, y = n, fill = sentiment)
+  ) +
+  geom_col(position = "fill") +
+  scale_fill_brewer(palette = "Set1") +
+  coord_flip() +
+  theme_minimal() +
+  ggtitle("Sentiment range for each story")
+
+```
+
+
+
+# What about context: issues like valence?
+## Can we view sentiment at a higher level, beyond single words?
+
+Yes, of course we can!  
+
+This capability lets us account (to some extent) for valence shifters.
+
+### Implementing higher-level sentiment
+The tidytext package is set up for word-level only.  That means we have to shift to the `sentimentr` package.  
+  
+Let's find new sentiment values for each story, taking valence into consideration
+```{r}
+library(sentimentr)
+
+
+```
+
+How can we easily check for example sentences or review the scoring more visually?
+```{r}
+
+```
+

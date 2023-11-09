@@ -1,0 +1,299 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Sentiment Analysis'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# How can we detect if documents contain positive/negative feeling or specific emotion?
+
+
+## First Step: Analyze Polarity with Lexicons
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load initial packages
+library(tidyverse)
+library(tidytext)
+```
+
+First step: getting lexicons  
+*For some, you have to download them: switch to the console to approve download*
+```{r}
+bing <- get_sentiments(lexicon = "bing")
+afinn <- get_sentiments(lexicon = "afinn")
+nrc <- get_sentiments(lexicon = "nrc")
+```
+
+  
+### *Question: How do these sentiment lexicons vary in size and structure?*   
+Let's take a look
+```{r}
+head(afinn)
+summary(afinn)
+```
+ 
+ 
+Afinn is on a -5 to +5 scale. 
+```{r}
+head(bing)
+#summary(bing)
+```
+  
+Bing is a binary system with just positive & negative flags
+```{r}
+head(nrc)
+summary(nrc)
+
+#how many distinct words are in NRC?
+length(unique(nrc$word))
+```
+
+NRC contains emotions and positive/negative options.  Each word can be listed multiple times, if the word is associated with multiple emotions
+  
+## Let's keep our first focus on polarity
+
+### Question: If we want to use the afinn data to score our stories, what general process should we use?
+
+Tokenize the stories, join the stories and the lexicon, then aggregate by stories and perform a computation (sum, average, etc) 
+
+### Question: If we want to use the bing data to score our stories, what is different?
+Same initial steps (tokenize & join), then aggregated by stories AND by the bing sentiment and count. We can't just do a computation because we have "word" values instead of "number" values.
+
+## Implementation
+First, we have to get our text data ready
+
+```{r}
+
+#read in
+dat <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories v3.csv")
+
+#explore
+glimpse(dat)
+
+```
+
+ * What columns do we have?
+   *new column of "feeling"*
+ * Do we need to fix the sport column again?
+   *yes, if we want to use it*
+ * Do you think we need to remove stopwords? 
+   *no, because they won't be in the sentiment lexicons*
+ 
+ 
+Cleanup, as needed.  Prep appropriately for our next step
+```{r}
+dat_words <- dat %>% unnest_tokens(output = word, 
+                           input = story, 
+                           token = "words") %>%
+  mutate(sport = tolower(sport))
+
+dat_words
+```
+Combine words with sentiment: afinn
+```{r}
+dat_afinn <- inner_join(dat_words, afinn, by = "word")
+dat_afinn
+```
+
+### Question: What is the polarity of each story?
+
+```{r}
+dat_afinn %>% 
+  group_by(id) %>%
+  summarize(total = sum(value, na.rm = T),
+            avg = mean(value, na.rm = T))
+```
+### What do the polarity numbers represent? 
+
+Total: Large positive or negative totals mean there are a lot of words that are positive or negative, or there are fewer words that are strongly positive or negative (like 20 words with a score of 1, or 5 words with a score of 4). It also means that any words of opposite polarity are "drowned out" by the the others.  Smaller totals (closer to 0) are either because you don't have very many emotion words to begin with (1 word scored at -3) or because you have a mix of positive and negative word scores that mostly cancel out.   
+  
+
+Average:  This is weighted by the number of emotion words.  So it shows the positive/negative balance more fairly if you're working with texts of very different lengths or of very different counts of sentiment words.   
+
+Medians would be another valuable metric to look at: what is your "middle" sentiment value?  
+
+Together, Total and Average can tell you more than either one can separately.  
+
+```{r}
+#Let's implement BING
+
+dat_bing <- inner_join(dat_words, bing, by = "word")
+
+dat_bing <- dat_bing %>%
+  count(id, sentiment) %>%
+  pivot_wider(names_from = sentiment, 
+              values_from = n, 
+              values_fill = 0) %>%
+  mutate(score = positive - negative,
+         percent_positive = positive/(positive+negative))
+```
+
+Results are somewhat similar to AFINN but not the same. We have different numbers of words in the two lexicons and a different way to measure them.
+
+## How might we graph polarity?
+Bar plot, with story ID on the x axis and a value on the y axis, with color to indicate positive and negative (or positive, negative, and neutral)    
+The same setup works for percent_positive, if we just tweak the column names and the ifelse values.  
+```{r}
+dat_bing %>%
+  ggplot(
+          #set x and y
+         aes(x = id, y = score, 
+             #fills in the bars with color
+             #we have to create a new variable to evaluate +/-/neutral
+             #this is one way to write it
+             fill = ifelse(score > 0, 
+                           "positive", 
+                           ifelse(score < 0, 
+                                  "negative", 
+                                  "neutral")))) +
+  geom_col() +
+  #make it look nicer
+  theme_minimal() +
+  #this fixes the legend title, if you want to show it
+  scale_fill_discrete(name = "Total Sentiment")
+```
+
+### Bonus graph
+You can make this a point plot instead, which can be helpful if you want to see the neutral values more clearly.
+
+```{r}
+dat_bing %>%
+  ggplot(
+         aes(x = id, y = score, 
+             #fill becomes color for points
+             color = ifelse(score > 0, 
+                           "positive", 
+                           ifelse(score < 0, 
+                                  "negative", 
+                                  "neutral")),
+             #this makes the points bigger: it is part of the AES
+             size = 2)) +
+  #I want to see the 0 line more cleary
+  geom_hline(yintercept = 0) +
+  #this one gets us the points
+  geom_point() +
+  theme_minimal() +
+  scale_color_discrete(name = "Total Sentiment") +
+  #this removes the size legend that will also show up
+  scale_size_continuous(guide = "none")
+  
+
+```
+Add titles, custom axis labels etc to make these better
+
+## Which emotions are present in each story?
+### Which emotion is the most prevalent? What is the mix like? 
+We have to use NRC to answer this -- it's the only option with emotions instead of only polarity.
+```{r}
+#which emotion is the most prevalent in each story?
+#tall/long data is helpful for answering this question
+
+inner_join(dat_words, nrc, by = "word") %>%
+  count(id, sentiment) %>%
+  
+  #we just want the emotion categories, so we can take out "positive" and "negative"
+  filter(!sentiment %in% c("positive", "negative")) %>%
+
+  #this will get us the top emotion in each story. 
+  group_by(id) %>%
+  slice_max(order_by = n, n = 1)
+```
+
+
+```{r}
+#what is the mix of emotions like in each story?
+#wide data is helpful for answering this question, so we can see the range for each at the same time
+
+#starts out the same
+inner_join(dat_words, nrc, by = "word") %>%
+  filter(!sentiment %in% c("positive", "negative")) %>%
+  count(id, sentiment) %>%
+  
+  #change the shape
+  pivot_wider(names_from = sentiment, 
+              values_from = n, 
+              values_fill = 0)
+
+```
+
+
+### Let's visualize the mix of emotions within a document
+RColorBrewer is a package that provides a variety of preset color palettes.  You can look it up online to see palette names and the colors for it.  Some palettes are accessible for people with colorblindness.
+```{r, echo = FALSE, eval = FALSE}
+library(RColorBrewer)
+
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  count(id, feeling, sentiment) %>%
+  filter(!sentiment %in% c("negative", "positive")) %>%
+  ggplot(
+    aes(x = id, y = n, fill = sentiment)
+  ) +
+  geom_col(position = "fill") +
+  
+  #this is what applies the RColorBrewer palette
+  scale_fill_brewer(palette = "Set1") +
+  
+  coord_flip() +  #I only need this because x = ID, but I want horizontal bars
+  
+  theme_minimal() +
+  ggtitle("Sentiment range for each story")
+
+```
+
+
+
+# What about context: issues like valence?
+## Can we view sentiment at a higher level, beyond single words?
+
+Yes, of course we can!  
+
+This capability lets us account (to some extent) for valence shifters.
+
+### Implementing higher-level sentiment
+The tidytext package is set up for word-level only.  That means we have to shift to the `sentimentr` package.  
+  
+Let's find new sentiment values for each story, taking valence into consideration.  
+We do NOT start with tidytext functions -- we start with the raw data, and use functions from the new package (in combination with dplyr functions).
+```{r, eval = FALSE, echo = FALSE}
+library(sentimentr)
+#get more details and examples for this package on the sentimentr github page (scroll down)
+
+#tokenize into sentences
+get_sentences(dat) %>%
+  #calculate sentence-level sentiment
+  sentiment() %>%
+  #group results and aggregate
+  group_by(id) %>%
+  summarize(avg = mean(sentiment))
+
+```
+I chose to do an average here, since the stories have different numbers of sentences in them. Looking at other stats, like sum, max, min can all be interesting to compare.   
+  
+You can put this dataframe into a visualization like we did above.  
+  
+#### How can we easily check for example sentences or review the scoring more visually?
+If you want to "check the work" done by the package this is a fun thing, but it doesn't knits well.  It's more for your own exploration than for an analytical report.  I have updated the code chunk to start with {r, eval = FALSE} so this file will still knit for you.
+```{r, eval = FALSE}
+#tokenize again
+get_sentences(dat) %>%
+  
+  #this groups by id and aggregates, all at once
+  #here or above, you could aggregate by sport instead of by id
+  sentiment_by(by = c("id")) %>%
+  
+  #this opens a separate browser window so you can explore
+  highlight()
+```
+

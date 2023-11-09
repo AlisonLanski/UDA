@@ -263,8 +263,7 @@ dat %>%
 
 reddit <-  read_csv(file = paste0("C:/Users/alanski/Downloads/scrape/ahernmadison_9235_2821518_reddit_posts-2.csv"))
 
-reddit_dates <- reddit %>% select(date_utc, title) %>% 
-  unnest_tokens(output = word, input = title, token = "words")
+reddit_dates <- reddit %>% select(date_utc, title) %>% unnest_tokens(output = word, input = title, token = "words")
 
 
 reddit_dates %>%
