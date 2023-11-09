@@ -34,7 +34,7 @@ dat <- read_csv("Your CSV file from Assignment #1.csv")
 
 # Sentiment Basics
 
-### Find sentiment scores for your data
+### Find polarity-related sentiment scores for your data
 Get a single score for each post.  
 
 ```{r}
@@ -47,7 +47,7 @@ Create an overview of the sentiment in the corpus
  * If you just looked at polarity (positive vs negative), show how many posts were positive vs negative overall.  
  * If you looked at the strength of the polarity (5 to -5), break your scores into 3 or more groups (for example: positive, neutral, negative), and show how many posts fall into each group. 
  
-You can show this using an aggregated dataframe/table or a plot.  
+You can show this using an aggregated dataframe/table or a graph.
 ```{r}
 
 ```
@@ -55,14 +55,14 @@ You can show this using an aggregated dataframe/table or a plot.
    
 ### Find the emotions in your data
 For each post, detect emotions.  Then aggregate the whole corpus together.
-Show how many times each emotion appears through the whole corpus.  Is it balanced? Do some emotions dominate?  (Show can be a dataframe/table or a graph)
+Show how many times each emotion appears through the whole corpus.  Is it balanced? Do some emotions dominate?  ("Show" method can be a dataframe/table or a graph)
 ```{r}
 
 ```
 
 # Sentiment deeper dive
 
-Select either polarity or emotions. Examine the relationship between sentiment and some other element of this dataset. 
+Select either polarity or emotions. Examine the relationship between sentiment and some other element of this dataset. The other element should be grouped or aggregated in some way, for example, all posts with the same number of comments, comments divided into 5 different groups, time by day/week/month/weekday, all posts together with top words, etc.
 
 
 #### WRITE: Describe your goal (what question do you want to look at?)
@@ -70,10 +70,14 @@ Select either polarity or emotions. Examine the relationship between sentiment a
 
 ```{r}
 #data prep code
+
+
 ```
 
 ```{r}
 #visualization code
+
+
 ```
 
 
