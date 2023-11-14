@@ -167,3 +167,6 @@ nrow(final_file)
 19764/29544
 
 final_file %>% count(sport, subreddit) %>% View()
+
+final_file %>%
+  write_csv("C:/Users/alanski/Downloads/reddit_class_2023.csv")
