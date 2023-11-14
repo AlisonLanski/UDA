@@ -1,0 +1,207 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2023"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Text Analytics: Topic Models'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load initial packages
+library(tidyverse)
+library(tidytext)
+```
+
+
+# Can we detect topics in a corpus and categorize documents appropriately? Which key words contribute to each topic?
+
+## Get set up
+```{r}
+# Read in class data
+
+dat <- read_csv("C:/Users/alanski/Documents/GitHub/UDA/Fall2023/UDA Fall 2023 Stories v3.csv") %>%
+  mutate(sport = tolower(sport))
+
+# Perform basic prep
+dat_words <- dat %>%
+  unnest_tokens(output = word, input = story, token = "words") %>%
+  anti_join(get_stopwords(source = "smart")) %>% 
+  filter(str_detect(word, pattern = "[:alpha:]")) %>%
+  count(id, word) 
+```
+
+## Prep data for topic modeling
+```{r}
+library(topicmodels)
+
+dat_dtm <-  cast_dtm(dat_words, document = id, term = word, value = n)
+
+
+#becomes a list that can work as sparse matrix
+#explain the output from the 
+
+#look at funky output description
+dat_dtm
+
+#"look at it it, but not well"
+#as.matrix(dat_dtm)
+```
+
+### QUESTION: What would we expect about the matrix if we switched to ngrams? 
+
+## Run topic models
+We have important parameters here.  
+  
+**alpha** dictates how the topics are distributed across the documents
+
+ * As alpha increases, documents are more likely have a mix of topics
+ * As alpha decreases, documents are more likely to have a single topic
+ * A common default is 50/# of topics (when you have a large corpus)
+ 
+**delta** dictates how the words are distributed across the topics
+
+ * As delta increases, topics will have more associated words
+ * As delta decreases, topics will have fewer associated words (and words are more likely to be uniquely associated with a topic) 
+ * A common default is 0.1
+```{r}
+#what do we do with this? 
+corpus_lda2 <- dat_dtm %>%
+  LDA(k = 2, method = "Gibbs", control = list(alpha = 1, delta = 0.1, seed = 1))
+
+#gives us the structure of the list object
+glimpse(corpus_lda2)
+
+
+corpus_lda3 <- dat_dtm %>%
+  LDA(k = 3, method = "Gibbs", control = list(alpha = 1, delta = 0.1, seed = 1))
+
+glimpse(corpus_lda3)
+
+```
+
+## Can we find words strongly associated with particular topics?
+This is beta
+```{r}
+# ok, let's look at results
+
+#beta and gamma
+
+corpus_lda2 %>%
+  tidy(matrix = "beta") %>%
+  arrange(desc(beta)) %>%
+  group_by(topic) %>%
+  slice_max(order_by = beta, n = 5)
+
+corpus_lda3 %>%
+  tidy(matrix = "beta") %>%
+  arrange(desc(beta)) %>%
+  group_by(topic) %>%
+  slice_max(order_by = beta, n = 8) %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(mapping = aes(x = beta, y = term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_y_reordered()
+```
+
+## Can we find documents strongly associated with specific topics?
+This is gamma
+```{r}
+#gamma
+
+corpus_documents <- corpus_lda3 %>%
+  tidy(matrix = "gamma")
+
+
+corpus_documents %>%
+  pivot_wider(names_from = topic, values_from = gamma, names_prefix = "topic_") %>%
+  #filter(topic_2 > .5) %>%
+  mutate(document = as.numeric(document)) %>%
+  inner_join(dat, by = c("document" = "id")) %>%
+  group_by(sport) %>%
+  summarize(mean = mean(topic_1), count= n())
+
+
+corpus_documents %>%
+  #pivot_wider(names_from = topic, values_from = gamma, names_prefix = "topic_") %>%
+  #filter(topic_2 > .5) %>%
+  mutate(document = as.numeric(document)) %>%
+  group_by(document) %>%
+  slice_max(order_by = gamma, n = 1) %>%
+  ungroup() %>%
+  inner_join(dat, by = c("document" = "id")) %>%
+  count(sport, topic) %>%
+  pivot_wider(names_from = topic, names_prefix = "topic_", values_from = n, values_fill = 0)
+  
+
+
+corpus_documents %>% filter(topic == 1) %>% select(topic, document, gamma)
+
+corpus_documents %>% filter(document == 1  | document == 2 | document == 3) %>% select(document, topic, gamma) %>% 
+  arrange(document) 
+
+```
+
+## Another way to look at words that most strongly associated with one of two topics
+```{r}
+#distance between topic-related words
+#(most single-topic-y words)
+
+beta_wide <- corpus_lda2 %>% 
+  tidy(matrix = "beta") %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  pivot_wider(names_from = topic, values_from = beta) %>% 
+  filter(topic1 > .001 | topic2 > .001) %>%
+  mutate(log_ratio = log2(topic2 / topic1))
+
+corpus_lda2 %>% 
+  tidy(matrix = "beta") %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  pivot_wider(names_from = topic, values_from = beta) %>% 
+  filter(topic1 > .001 | topic2 > .001) %>%
+  mutate(log_ratio = log2(topic2 / topic1)) %>%
+  mutate(log_type = ifelse(log_ratio > 0, "positive", "negative"),
+         abs_log = abs(log_ratio)) %>%
+  group_by(log_type) %>%
+  slice_max(order_by = abs_log, n = 8) %>%
+  mutate(term = reorder_within(x = term, by = log_ratio, within = log_type)) %>%
+  ggplot(
+    aes(x = log_ratio, y = term)
+  ) +
+  geom_col()+
+  scale_y_reordered()
+```
+
+## Are results different when we allow for correlation instead of instead of LDA independence?
+Because CTM uses a logistic normal distributions instead of a latent dirichlet allocation....  
+
+ * we no longer have alpha and delta parameters
+ * we still have beta and gamma outputs
+```{r}
+ctm2 <- topicmodels::CTM(dat_dtm, k = 2, )
+ctm3 <- topicmodels::CTM(x = dat_dtm , k = 3)
+
+
+ctm3 %>%
+  tidy(matrix = "gamma")
+
+topicmodels::get_terms(corpus_lda2, 10)
+
+topicmodels::get_terms(ctm3, 10)
+topicmodels::get_topics(ctm3)
+topicmodels::perplexity(ctm3)
+#frex looks like a pain to calculate
+
+
+```
