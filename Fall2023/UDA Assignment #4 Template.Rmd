@@ -1,0 +1,54 @@
+---
+html_document:
+  toc: yes
+author: "Your Name Here"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Assignment #4 - Fall 2023 - Finding Latent Topics'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+# Preliminaries
+Load basic packages and data 
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidytext)
+```
+
+### Bring in data.
+```{r}
+dat <- read_csv("Your CSV file from Assignment #1.csv")
+```
+
+
+### Set up the data into the correct format for topic modeling
+
+```{r}
+
+```
+
+## Run a topic model & variations (set a seed)
+```{r}
+
+```
+
+## Compare results from the models
+What emerges? 
+```{r}
+
+```
+### Which model is best? Why? Can you visualize something about it?
+
+
+## Final Thoughts
+What did you expect to find? What did you actually find?  What names or themes would you assign to each topic? How coherent are they? 
