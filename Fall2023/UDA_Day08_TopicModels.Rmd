@@ -24,63 +24,76 @@ library(tidytext)
 ```
 
 
-# Can we detect topics in a corpus and sort documents appropriately?  What key words contribute to each topic?  If we have new documents, can we predict what they are about ahead of time?
+# Can we detect topics in a corpus and categorize documents appropriately? Which key words contribute to each topic?
 
-## 
+## Get set up
 ```{r}
 # Read in class data
-
-dat <- read_csv("C:/Users/alanski/Downloads/UDA Fall 2023 Stories v3.csv") %>%
+dat <- read_csv("UDA Fall 2023 Stories v3.csv") %>%
   mutate(sport = tolower(sport))
 
-library(topicmodels)
-
-dat_dtm <- dat %>%
+# Perform basic prep
+dat_words <- dat %>%
   unnest_tokens(output = word, input = story, token = "words") %>%
   anti_join(get_stopwords(source = "smart")) %>% 
   filter(str_detect(word, pattern = "[:alpha:]")) %>%
-  count(id, word) %>%
-  cast_dtm(document = id, term = word, value = n)
+  count(id, word) 
+```
+
+## Prep data for topic modeling
+We need a document term matrix
+```{r}
+library(topicmodels)
+```
+
+### QUESTION: What would we expect about the matrix if we switched to ngrams? 
+
+## Run topic models
+We have important parameters here.  
+  
+**alpha** dictates how the topics are distributed across the documents
+
+ * As alpha increases, documents are more likely have a mix of topics
+ * As alpha decreases, documents are more likely to have a single topic
+ * A common default is 50/# of topics (when you have a large corpus)
+ 
+**delta** dictates how the words are distributed across the topics
+
+ * As delta increases, topics will have more associated words
+ * As delta decreases, topics will have fewer associated words (and words are more likely to be uniquely associated with a topic) 
+ * A common default is 0.1
+   
+Other parameters we can tune include  
+
+ * **iter** the number of iterations (default 2000)
+ * **burnin** how many early iterations to discard (default 0)
+```{r}
+#let's create a 2-topic model
+
+```
+
+```{r}
+#pick a higher number (3-5) and try again
 
 
-#becomes a list that can work as sparse matrix
-#explain the output from the 
+```
 
-#look at funky output description
-dat_dtm
+## Can we find words strongly associated with particular topics?
+This is beta. For each topic, beta adds up to 1.
+```{r}
+# start with the 2-topic model
 
-#"look at it it, but not well"
-#as.matrix(dat_dtm)
+```
 
-#what do we do with this? 
-corpus_lda2 <- dat_dtm %>%
-  LDA(k = 2, method = "Gibbs", control = list(alpha = 1, delta = 0.1, seed = 1))
+```{r}
+# same code, but try it on your 3-topic model
 
-#gives us the structure of the list object
-glimpse(corpus_lda2)
+```
 
-
-corpus_lda3 <- dat_dtm %>%
-  LDA(k = 3, method = "Gibbs", control = list(alpha = 1, delta = 0.1, seed = 1))
-
-glimpse(corpus_lda3)
-
-
-# ok, let's look at results
-
-#beta and gamma
-
-corpus_lda2 %>%
-  tidy(matrix = "beta") %>%
-  arrange(desc(beta)) %>%
-  group_by(topic) %>%
-  slice_max(order_by = beta, n = 5)
-
-corpus_lda3 %>%
-  tidy(matrix = "beta") %>%
-  arrange(desc(beta)) %>%
-  group_by(topic) %>%
-  slice_max(order_by = beta, n = 8) %>%
+### Visualize? Can use the old standard
+Faceted barplot
+```{r}
+??your_data_here?? %>%
   mutate(term = reorder_within(term, beta, topic)) %>%
   ggplot(mapping = aes(x = beta, y = term, fill = factor(topic))) +
   geom_col(show.legend = FALSE) +
@@ -88,55 +101,23 @@ corpus_lda3 %>%
   scale_y_reordered()
 ```
 
-### QUESTION: What would we expect if we switched to NGRAMs? About the sparsity of the matrix? About the quality of the results? 
 
+## Can we find documents strongly associated with specific topics?
+This is gamma. For each document, gamma adds up to 1.
 ```{r}
-#gamma
+#gamma for the 2-topic model, find the max values per topic
 
-corpus_documents <- corpus_lda3 %>%
-  tidy(matrix = "gamma")
-
-
-corpus_documents %>%
-  pivot_wider(names_from = topic, values_from = gamma, names_prefix = "topic_") %>%
-  #filter(topic_2 > .5) %>%
-  mutate(document = as.numeric(document)) %>%
-  inner_join(dat, by = c("document" = "id")) %>%
-  group_by(sport) %>%
-  summarize(mean = mean(topic_1), count= n())
-
-
-corpus_documents %>%
-  #pivot_wider(names_from = topic, values_from = gamma, names_prefix = "topic_") %>%
-  #filter(topic_2 > .5) %>%
-  mutate(document = as.numeric(document)) %>%
-  group_by(document) %>%
-  slice_max(order_by = gamma, n = 1) %>%
-  ungroup() %>%
-  inner_join(dat, by = c("document" = "id")) %>%
-  count(sport, topic) %>%
-  pivot_wider(names_from = topic, names_prefix = "topic_", values_from = n, values_fill = 0)
-  
-
-
-corpus_documents %>% filter(topic == 1) %>% select(topic, document, gamma)
-
-corpus_documents %>% filter(document == 1  | document == 2 | document == 3) %>% select(document, topic, gamma) %>% 
-  arrange(document) 
+```
+```{r}
+#same thing with gamma for the other model
 
 ```
 
 
+### Free Viz! Another way to look at words that most strongly associated with one of two topics
 ```{r}
 #distance between topic-related words
-#(most single-topic-y words)
-
-beta_wide <- corpus_lda2 %>% 
-  tidy(matrix = "beta") %>%
-  mutate(topic = paste0("topic", topic)) %>%
-  pivot_wider(names_from = topic, values_from = beta) %>% 
-  filter(topic1 > .001 | topic2 > .001) %>%
-  mutate(log_ratio = log2(topic2 / topic1))
+#(shows most single-topic-y words)
 
 corpus_lda2 %>% 
   tidy(matrix = "beta") %>%
@@ -144,193 +125,29 @@ corpus_lda2 %>%
   pivot_wider(names_from = topic, values_from = beta) %>% 
   filter(topic1 > .001 | topic2 > .001) %>%
   mutate(log_ratio = log2(topic2 / topic1)) %>%
-  mutate(log_type = ifelse(log_ratio > 0, "positive", "negative"),
+  mutate(log_type = ifelse(log_ratio > 0, "Topic 2 Association", "Topic 1 Association"),
          abs_log = abs(log_ratio)) %>%
   group_by(log_type) %>%
   slice_max(order_by = abs_log, n = 8) %>%
   mutate(term = reorder_within(x = term, by = log_ratio, within = log_type)) %>%
   ggplot(
-    aes(x = log_ratio, y = term)
+    aes(x = log_ratio, y = term, fill = log_type)
   ) +
   geom_col()+
   scale_y_reordered()
 ```
 
-# can we do correlated topic models instead of LDA independence?
-#with class data
-```{r}
-ctm2 <- topicmodels::CTM(dat_dtm, 2)
-ctm3 <- topicmodels::CTM(x = dat_dtm , k = 3)
+## Are results different when we allow for correlation instead of instead of LDA independence?
+Because CTM uses a logistic normal distributions instead of a latent dirichlet allocation....  
 
-topicmodels::get_terms(ctm3, 10)
-topicmodels::get_topics(ctm3)
-topicmodels::perplexity(ctm)
-#frex looks like a pain to calculate
+ * we no longer have alpha and delta parameters
+ * we still have beta and gamma outputs
+```{r}
+
 
 
 ```
 
+#### What topics emerge? How should we label them? How evenly is our corpus split into the topics?
 
-
-## STM INSTEAD
-```{r}
-#can still use tidytext to prep it
-dat_dfm <- dat %>%
-  unnest_tokens(output = word, input = story, token = "words") %>%
-  anti_join(get_stopwords(source = "smart")) %>% 
-  filter(str_detect(word, pattern = "[:alpha:]")) %>%
-  count(id, word) %>%
-  cast_dfm(document = id, term = word, value = n)
-
-
-
-
-dat_dfm
-
-library(stm)
-
-topic_model <- stm(dat_dfm, K = 6, 
-                   verbose = FALSE, init.type = "Spectral")
-
-
-summary(topic_model)
-
-td_beta <- tidy(topic_model)
-
-td_beta %>%
-    group_by(topic) %>%
-    top_n(10, beta) %>%
-    ungroup() %>%
-    mutate(topic = paste0("Topic ", topic),
-           term = reorder_within(term, beta, topic)) %>%
-    ggplot(aes(term, beta, fill = as.factor(topic))) +
-    geom_col(alpha = 0.8, show.legend = FALSE) +
-    facet_wrap(~ topic, scales = "free_y") +
-    coord_flip() +
-    scale_x_reordered() +
-    labs(x = NULL, y = expression(beta),
-         title = "Highest word probabilities for each topic",
-         subtitle = "Different words are associated with different topics")
-
-
-
-td_gamma <- tidy(topic_model, matrix = "gamma",                    
-                 document_names = rownames(dat_dfm))
-
-ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
-  geom_histogram(alpha = 0.8, show.legend = FALSE) +
-  facet_wrap(~ topic, ncol = 3) +
-  labs(title = "Distribution of document probabilities for each topic",
-       subtitle = "Each topic is associated with 1-3 stories",
-       y = "Number of stories", x = expression(gamma))
-
-plot(topic_model)
-```
-#find k in stm
-```{r}
-library(quanteda)
-stm_prep <- convert(dat_dfm, to = "stm")
-
-kTest <- searchK(documents = stm_prep$documents, 
-                 vocab = stm_prep$vocab,
-                 K = c(2, 3, 4, 5, 6, 7, 8, 9, 10))
-kTest
-plot(kTest)
-
-#let's try with some reddit data isntead
-df <- read_csv("C:/Users/alanski/Downloads/reddit_class_2023.csv")
-
-
-
-df_prep <- df %>%
-  filter(!is.na(text)) %>%
-  mutate(text = str_replace_all(text, 
-                                pattern = "(http|https)://[:graph:]*", 
-                                replacement = " "),
-         text = str_replace_all(text, 
-                                pattern = "_", 
-                                replacement = " "),
-         text = textclean::replace_html(text)) %>%
-  mutate(postid = row_number()) %>%
-  unnest_tokens(word, text, token = "words") %>%
-  filter(!str_detect(word, pattern = "[0-9]")) %>%
-  anti_join(get_stopwords(source = "smart")) %>%
-  select(date_utc, postid, sport, subreddit, comments, score, up_ratio, word) %>%
-  count(postid, word)
-
-
-
-df_clean <-  df_prep %>% cast_dfm(document = postid, term = word, value = n)
-
-
-df_clean
-      
-            
-
-stm_prep <- convert(df_clean, to = "stm")
-
-#time to run with the reddit data, grouped by subreddit, for me: 4minutes  -- 3 might be best?
-kTest <- searchK(documents = stm_prep$documents, 
-                 vocab = stm_prep$vocab,
-                 K = c(2, 3, 4, 5, 6, 7, 8, 9, 10))
-
-plot(kTest)
-
-stm3 <- stm(documents = stm_prep$documents, 
-            vocab = stm_prep$vocab,
-            K = 3,
-            seed = 13579)
-
-plot(stm3)
-labelTopics(stm3)
-```
-
-If it says "date", congratulations!  If it says character, we need to convert it. The lubridate package is really easy to use for this.
-
-### lubridate to convert text to dates
-```{r}
-library(lubridate)
-
-df %>% 
-  mutate(DateTextFixed = ymd(DateText))
-
-```
-The ymd function reads the text format in as year-month-day. For other options, see your lubridate cheatsheet  
-
-
-## With dates: now what?
-You can use date columns like other variables for grouping your text data, graphing, etc, the same way you might use a column called "Sport" or "ID.  
-
-## Can I group the dates themselves?  
-Absolutely.  There are many functions that will pull out a single part of your date.
- 
-### Date parts
-```{r}
-#can you see what each function is doing to our dates?
-df %>%
-  mutate(date_monthno = month(DateDate),
-         date_weekno = week(DateDate),
-         date_days = wday(DateDate))
-```
- * `month` extracts the month as a number (July = 7, August = 8)
- * `week` counts weeks from the January 1st (we have Week #30 and #31 in this data)
- * `wday` uses a number to express a day of the week (Sunday = 1)
- 
-You can use these extractions to group data across multiple years into months, days, weeks (All "Decembers" together, for example).  
-
-### Date rounding
-Maybe you want to group dates within a single period together, like within the same week or within the same month, but you want to keep years apart.  
-Try the floor and ceiling functions
-```{r}
-df %>%
-  mutate(week_down = floor_date(DateDate, unit = "week"),
-         month_down = floor_date(DateDate, unit = "month"),
-         month_up = ceiling_date(DateDate, unit = "month"))
-         
-```
-Compare each of the values to the original DateDate to see how we are rounding. We can use these rounded dates to help group our data into specific weeks or months in way that still preserves the year. 
-
-### But wait, there's more!
-lubridate offers functions to calculate durations, do math with dates, and to convert numeric representations of datatimes into timestamped dates (that's what you have in your "timestamp" reddit data -- try putting that column into the lubridate `as_datetime()` function).  
-
-Learn more about these options on your cheatsheet or by looking online.  Lubridate makes it easy!
+### Which model do you like the best and why?

@@ -42,6 +42,7 @@ dat_words <- dat %>%
 ```
 
 ## Prep data for topic modeling
+We need a document term matrix
 ```{r}
 library(topicmodels)
 
@@ -74,6 +75,12 @@ We have important parameters here.
  * As delta increases, topics will have more associated words
  * As delta decreases, topics will have fewer associated words (and words are more likely to be uniquely associated with a topic) 
  * A common default is 0.1
+   
+Other parameters we can tune include  
+
+ * **iter** the number of iterations (default 2000)
+ * **burnin** how many early iterations to discard (default 0)
+ *
 ```{r}
 #what do we do with this? 
 corpus_lda2 <- dat_dtm %>%
@@ -205,3 +212,5 @@ topicmodels::perplexity(ctm3)
 
 
 ```
+
+#### What topics emerge? How should we label them? How evenly is our corpus split into the topics?
