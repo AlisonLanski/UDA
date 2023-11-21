@@ -1,0 +1,109 @@
+---
+html_document:
+  toc: yes
+author: "Your Name Here"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Assignment #1 - Fall 2023'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+# Preliminaries
+Load basic packages and adjust 
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(RedditExtractoR)
+```
+
+
+```{r echo = FALSE}
+# DO NOT EDIT THIS CODE
+# RUN THIS CELL TO UPDATE THE build_thread_df internal function so it returns extra data
+# yes, we're hacking the package :}
+
+# create revised function locally
+build_thread_df <- function(json) {
+  data.frame(
+    date_utc = RedditExtractoR:::extract_json_attribute(json, "created_utc") |> 
+      as.POSIXct(origin="1970-01-01") |>
+      as.Date() |>
+      format("%Y-%m-%d"),
+    timestamp = RedditExtractoR:::extract_json_attribute(json, "created_utc"),
+    title = RedditExtractoR:::extract_json_attribute(json, "title"),
+    text = RedditExtractoR:::extract_json_attribute(json, "selftext"),
+    subreddit = RedditExtractoR:::extract_json_attribute(json, "subreddit"),
+    comments = RedditExtractoR:::extract_json_attribute(json, "num_comments"),
+    score = RedditExtractoR:::extract_json_attribute(json, "score"),
+    up_ratio = RedditExtractoR:::extract_json_attribute(json, "upvote_ratio"),
+    url = paste0(RedditExtractoR:::REDDIT_URL, RedditExtractoR:::extract_json_attribute(json, "permalink")),
+    stringsAsFactors = FALSE
+  )
+}
+
+# replace the function in the package with this one
+assignInNamespace(x = "build_thread_df", value = build_thread_df, ns = "RedditExtractoR")
+```
+
+## Sidetrack Challenge!
+Read in the sample csv file, and check out the first row of data.  
+There's a funky character in the title, and you're likely to have those showing up in your data too.  
+See if you can work with the sample file to fix that character by replacing it with something correct.  
+You can use a stringr function inside of a mutate to fix this for all rows in a column at the same time.
+```{r}
+#read in the sample csv file
+
+#check out/fix the funky character - this is practice before your real data below
+```
+
+
+## Extraction code
+Get your NEW data and assign it to an object
+Use `find_thread_urls`
+```{r}
+df <- find_thread_urls(subreddit = "ultimate", sort_by = "new", period = "year")
+```
+
+## Fix it up
+Add your new columns, fix that funky character in your title and text columns, and check that the final product looks ok  
+```{r}
+df_new <- df %>%
+  mutate(sport = "ultimate",
+         keyword = NA, 
+         title = str_replace_all(title, pattern = "\031", replacement = "'"),
+         text = str_replace_all(title, pattern = "\031", replacement = "'"))
+
+
+
+
+```
+
+
+## Write it out for submission
+Call your file "reddit_posts.csv"
+```{r}
+write_csv(df_new, "C:/Users/alanski/Downloads/reddit_ultimate_classifiation.csv")
+```
+
+## Speculate a little
+Why might the marketing/communications team get some value out of your (future) analysis of this data? In other words, what kind of insights might they be interested in and why? Related: do you think the coaching staff would find anything interesting here -- why or why not?  
+*Note: you do NOT need to analyze any data to answer this question.  Scroll through the website a little bit to get a sense of what's there, and work with that general knowledge*   
+
+Write a few sentences - no need for a big essay.  
+  
+### Your answer
+
+## Consider a grouping for analysis
+If you were going to analyze this data with some kind of grouping (not just each post separately), how would you want to group it? Why would that grouping be interesting?
+
+### Your answer
+
