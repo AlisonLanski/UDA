@@ -27,7 +27,7 @@ library(tidytext)
 
 ### Bring in data.
 ```{r}
-dat <- read_csv("Your CSV file from Assignment #1.csv")
+dat <- read_csv("some reddit data.csv")
 ```
 
 
@@ -49,6 +49,10 @@ What emerges?
 ```
 ### Which model is best? Why? Can you visualize something about it?
 
+### What is a top document from each topic?  
+```{r}
+
+```
 
 ## Final Thoughts
-What did you expect to find? What did you actually find?  What names or themes would you assign to each topic? How coherent are they? 
+What did you expect to find? What did you actually find?  What names or themes would you assign to each topic? How coherent are they? Are the "top documents" actually good representatives for your topics? Would they be useful for MarComm to highlight in an fan engagement campaign?
