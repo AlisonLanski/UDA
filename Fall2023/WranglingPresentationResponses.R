@@ -22,7 +22,7 @@ df <- read_sheet(ss = theUrl) %>%
 #prep comments to send out
 
 combined <- df %>% group_by(group) %>%
-   mutate(longtext = str_flatten(string = comment, collapse = "\n", last = "")) %>%
+   mutate(longtext = str_flatten(string = comment, collapse = "\n", last = "\n", na.rm= TRUE)) %>% 
   select(group, 
          longtext) %>%
   distinct()
@@ -60,10 +60,25 @@ df %>%
   mutate(score_total = quantity + clear + learning + visual + overall) %>%
   group_by(`Email Address`) %>% 
   mutate(total_replies = n(),
-         all_comments = str_flatten(string = comment, collapse = "\n"),
-         all_scores = str_flatten(string = as.character(score_total), collapse = "\n")) %>%
+         all_comments = str_flatten(string = comment, collapse = "\n", last = "\n", na.rm = T),
+         all_scores = str_flatten(string = as.character(score_total), collapse = "\n", na.rm = T),
+         all_memory = str_flatten(string = memorable, collapse = "\n", last = "\n", na.rm = T),
+         all_additional = str_flatten(string = additional, collapse = "\n", last = "\n", na.rm = T)) %>%
+  mutate(complete_comments = sum(ifelse(nchar(comment) > 5, 1, 0), na.rm = T),
+         complete_memory = sum(ifelse(nchar(memorable) > 5, 1, 0), na.rm = T),
+         extra_additional = sum(ifelse(nchar(additional) > 5, 1, 0), na.rm = T)) %>%
   ungroup() %>%
-  select(`Email Address`, all_scores, all_comments) %>%
+  transmute(`Email Address`,
+            all_scores, 
+            all_comments, 
+            all_memory, 
+            all_additional,
+            total_replies,
+            complete_comments,
+            complete_memory,
+            extra_additional,
+            complete = "",
+            quality = "") %>%
   distinct() %>%
   write_sheet(ss = theUrl, sheet = "Student Participation")
 
