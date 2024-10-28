@@ -1,0 +1,427 @@
+---
+title: "Chicago Hamstring Prep"
+author: "Alison Lanski"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Get started
+```{r initial_loads}
+library(tidyverse)
+
+raw <- read_csv("synthetic_hamstring_injuries.csv")
+```
+check it out
+```{r}
+glimpse(raw)
+```
+### Codebook
+
+Column name and meaning
+
+ * bridge_date. Date of isometric bridge assessment
+ * bridge_r_mean. Mean of three individual trials of right leg isometric bridge in N
+ * bridge_l_mean. Mean of three individual trials of right leg isometric bridge in N
+ * bridge_r_max. Max of three individual trials of right leg isometric bridge in N
+ * bridge_l_max. Max of three individual trials of left leg isometric bridge in N
+ * nb_date. Date of Nordbord assessment
+ * nb_mean_r. Mean of five individual trials of right leg Nordic leg curl performed on the Nordbord in N
+ * nb_mean_l. Mean of five individual trials of left leg Nordic leg curl performed on the Nordbord in N
+ * nb_max_r. Max of five individual trials of right leg Nordic leg curl performed on the Nordbord in N
+ * nb_max_l. Max of five individual trials of left leg Nordic leg curl performed on the Nordbord in N
+ * r_dorsiflexion. Right ankle dorsiflexion range of motion in deg
+ * l_dorsiflexion. Left ankle dorsiflexion range of motion in deg
+ * sitting-reach. Seated reach assessment in cm
+ * phq_nine. Depression severity screening ranging from 0-27 units
+ * top_speed. Fastest achievable sprinting speed in mph
+ * r_injured. 0 if the right limb was not injured. 1 if the right limb was injured.
+ * l_injured. 0 if the left limb was not injured. 1 if the left limb was injured. 
+
+#### Get cleaned & oriented 
+```{r}
+#update datatypes
+df <- raw %>% 
+  mutate(bridge_date = mdy(bridge_date),
+         nb_date = mdy(nb_date))
+
+# check injury setup
+with(df, table(r_injured, l_injured))
+```
+14 R injuries, 10 L injuries, no one with both injured, 265 with neither  
+This means it's safe to create an "injured" flag and compute differences between R&L
+
+*Question* - What shape do I want this data in?  
+I think I want it to look like injured vs noninjured and then the differentials between injured and uninjured leg for the injured folks.  But how do you look at differentials for the people without any injuries at all? just "stronger vs weaker"?
+
+##Let's just start with injured vs uninjured: patterns (all data)
+```{r}
+df <- df %>%
+  mutate(injury = r_injured + l_injured,
+         leg = case_when(r_injured == 1 ~ "Right", 
+                         l_injured == 1 ~ "Left",
+                         TRUE ~ NA))
+
+plot(df[, 3:6])
+plot(df[, 8:16])
+```
+Lots of L/R correlation (to be expected) -- so don't want to use those together in a linear model
+
+```{r}
+#start with injured vs uninjured -- is uninjured always the weaker one?
+
+ggplot(df,
+       aes(x = bridge_r_mean, y = bridge_l_mean, color = leg)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0)
+```
+```{r}
+ggplot(df,
+       aes(x = bridge_r_max, y = bridge_l_max, color = leg)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0)
+```
+
+Imbalance by itself doesn't seem to matter for bridges  
+
+```{r}
+ggplot(df,
+       aes(x = nb_mean_l, y = nb_mean_r, color = leg)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0)
+```
+```{r}
+ggplot(df,
+       aes(x = nb_max_l, y = nb_max_r, color = leg, alpha = 0.5)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0)
+```
+```{r}
+ggplot(df,
+       aes(x = r_dorsiflexion, y = l_dorsiflexion, color = leg, alpha = 0.5)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0)
+```
+```{r}
+ggplot(df,
+       aes(x = sitting_reach, fill = leg, alpha = 0.5)) +
+  geom_histogram() 
+```
+```{r}
+ggplot(df,
+       aes(x = phq_nine, fill = leg, alpha = 0.5)) +
+  geom_histogram() 
+```
+```{r}
+ggplot(df,
+       aes(x = top_speed, fill = leg, alpha = 0.5)) +
+  geom_histogram() 
+```
+Ok, so none of these graphs really show any particular metric that seems obviously related injury rates. Let's work with abs differences for the moment and see what's what...
+
+```{r}
+df <- df %>%
+  mutate(bridge_mean = abs(bridge_r_mean - bridge_l_mean),
+         nb_mean = abs(nb_mean_r - nb_mean_l)) %>%
+#the others don't seem R/L correlated, so we don't really need to do a diff, but why not...
+  mutate(dorsi_diff = abs(r_dorsiflexion - l_dorsiflexion))
+
+#let's just start with logistic
+mod_lm <- glm(formula = injury ~ bridge_mean + nb_mean + 
+                                  dorsi_diff + sitting_reach + 
+                                  phq_nine + top_speed,
+              family = "binomial", data = df)
+
+summary(mod_lm)
+```
+Well that came out pretty bad.
+
+### What if we try svm? Keep 3 categories, keep correlations?
+```{r svm_fail}
+library(kernlab)
+
+df <- df %>%
+  mutate(injury3 = factor(ifelse(is.na(leg), "Uninjured", leg)))
+
+set.seed(3121)
+mod_svm <- ksvm(injury3 ~ bridge_mean + nb_mean + 
+       r_dorsiflexion + l_dorsiflexion + sitting_reach + phq_nine + top_speed,
+     data = df, 
+     kernel = "rbfdot",
+     C = 80,
+     cross = 10)
+
+table(fitted(mod_svm), df$injury3)
+```
+SVM is super accurate because it just predicts uninjured for everyone hahahahaha
+But if we raise the cost a lot -- it starts doing better! It can actually do very well on the full data... hmmmmm... need to actually try this with test/train data.
+
+
+## reshape for plotting? I don't think this is actually useful, except for faceting? 
+```{r reshape_for_no_reason}
+df_long <- df %>%
+  pivot_longer(cols = -c(player_id, bridge_date, nb_date, r_injured, l_injured, injury, leg), 
+               names_to = "metric",
+               values_to = "value")
+
+```
+
+## OK working with the ML class content
+
+```{r ml_loads}
+library(xgboost)
+library(caret)
+```
+80/20 split
+```{r splitit}
+set.seed(5748)
+trainIndex <- createDataPartition(df$injury3, p = 0.8,
+                                  list = FALSE, times = 1)
+
+dftrain <- df[trainIndex, ]
+dftest <- df[-trainIndex, ]
+
+dftrain_small <- dftrain %>% select(-player_id, -bridge_date, -nb_date, 
+                                    -r_injured, -l_injured, -injury3, -leg)
+
+dftest_small <- dftest %>% select(-player_id, -bridge_date, -nb_date, 
+                                    -r_injured, -l_injured, -injury3, -leg)
+
+dftrain_small3 <- dftrain %>% select(-player_id, -bridge_date, -nb_date, 
+                                    -r_injured, -l_injured, -injury, -leg)
+dftrain_small3_boost <- dftrain_small3 %>% filter(injury3 != "Uninjured") %>% rbind(., 
+                                                                                    .,
+                                                                                    dftrain_small3)
+
+dftest_small3 <- dftest %>% select(-player_id, -bridge_date, -nb_date, 
+                                    -r_injured, -l_injured, -injury, -leg)
+```
+
+
+
+```{r better_svm}
+set.seed(1234)
+svm_mod <- train(
+  factor(injury3) ~ . ,
+  data = dftrain_small3,
+  method = "svmRadial",
+  trControl = trainControl(method = "cv", number = 5),
+  tuneGrid = expand.grid(sigma = c(0.01,0.1,1, 10), C = c(10, 100, 1000)))
+
+svm_mod
+```
+```{r}
+pred_svm <- predict(svm_mod, dftest_small3)
+
+#caret has a nice function to produce a confusion matrix for us with stats
+svm_matrix <- confusionMatrix(pred_svm, factor(dftest_small3$injury3), positive = "right")
+
+#view all results
+svm_matrix
+
+```
+
+
+
+want to remove the player_id, bridge_date, nb_date, r_injured, l_injured, injury, leg, as not necessary or redundant
+```{r try_xgboost}
+dftrain_small <- dftrain %>% select(-player_id, -bridge_date, -nb_date, 
+                                    -r_injured, -l_injured, -injury3, -leg)
+
+dftest_small <- dftest %>% select(-player_id, -bridge_date, -nb_date, 
+                                    -r_injured, -l_injured, -injury3, -leg)
+
+train_mat <- xgb.DMatrix(data = as.matrix(dftrain_small[, -14]), 
+                         label = dftrain_small$injury)
+
+test_mat <- xgb.DMatrix(data = as.matrix(dftest_small[, -14]), 
+                        label = dftest_small$injury)
+
+set.seed(23451234)
+mod_xg <- xgboost(data = train_mat, 
+                  nrounds = 20,
+                  verbose = 1,
+                  print_every_n = 1, 
+                  objective = "binary:logistic",
+                  eval_metric = "auc",
+                  eval_metric = "error")
+```
+
+```{r}
+pred_xg <- predict(mod_xg, test_mat)
+
+
+pred_dat <- cbind.data.frame(pred_xg, dftest_small$injury) %>%
+  mutate(pred_xg_class = ifelse(pred_xg >=.5, 1, 0))
+
+table(pred_dat$pred_xg_class, dftest_small$injury) 
+
+#accuracy 
+53/59
+
+
+#True Positive Rate  / Sensitivity / Recall
+0/4
+
+#True Negative Rate / Specificity
+53/(53+0)
+
+#balanced accuracy
+(0 + 100)/2
+
+```
+```{r boost_parameters}
+zero_weight <- (nrow(dftrain)-sum(dftrain$injury))/sum(dftrain$injury)
+
+set.seed(23451234)
+mod_xgp <- xgb.cv(data = train_mat, # Set training data
+                  nfold = 5, # Use 5 fold cross-validation
+                  eta = 0.05, # Set learning rate
+                  nrounds = 1000, # Set number of rounds
+                  early_stopping_rounds = 50, # Set number of rounds to stop at if there is no improvement
+               
+               verbose = 1, # 1 - Prints out fit
+               nthread = 1, # Set number of parallel threads
+               print_every_n = 20, # Prints out result every 20th iteration
+               scale_pos_weight = zero_weight,
+               objective = "binary:logistic", # Set objective
+               eval_metric = "auc",
+               eval_metric = "error") # Set evaluation metric to use
+```
+
+best was 77, tune more, add weight
+```{r}
+
+max_depth_vals <- c(3, 5, 7, 8, 10) # Create vector of max depth values
+min_child_weight <- c(2,5,7,10, 14) # Create vector of min child values
+cv_params <- expand.grid(max_depth_vals, min_child_weight)
+names(cv_params) <- c("max_depth", "min_child_weight")
+
+
+zero_weight <- (nrow(dftrain)-sum(dftrain$injury))/sum(dftrain$injury)
+
+# Create results vector
+auc_vec <- error_vec <- rep(NA, nrow(cv_params)) 
+
+
+# Loop through results
+for(i in 1:nrow(cv_params)){
+  set.seed(23451234)
+  bst_tune <- xgb.cv(data = train_mat, # Set training data
+              
+              nfold = 5, # Use 5 fold cross-validation
+               
+              eta = 0.02, # Set learning rate
+              max.depth = cv_params$max_depth[i], # Set max depth
+              min_child_weight = cv_params$min_child_weight[i], # Set minimum number of samples in node to split
+              subsample = 0.9, # Set proportion of training data to use in tree
+              colsample_bytree =  0.5, # Set number of variables to use in each tree
+              gamma = 0,
+               
+              nrounds = 300, # Set number of rounds
+              early_stopping_rounds = 30, # Set number of rounds to stop at if there is no improvement
+              
+              scale_pos_weight = zero_weight,
+               
+              verbose = 1, # 1 - Prints out fit
+              nthread = 1, # Set number of parallel threads
+              print_every_n = 50, # Prints out result every 20th iteration
+               
+              objective = "binary:logistic", # Set objective
+              eval_metric = "auc", # Set evaluation metric to use
+              eval_metric = "error") # Set evaluation metric to use
+  auc_vec[i] <- bst_tune$evaluation_log$test_auc_mean[bst_tune$best_ntreelimit]
+  error_vec[i] <- bst_tune$evaluation_log$test_error_mean[bst_tune$best_ntreelimit]
+  
+}
+
+```
+
+```{r}
+# Join results in dataset
+res_db <- cbind.data.frame(cv_params, auc_vec, error_vec)
+names(res_db)[3:4] <- c("auc", "error") 
+res_db$max_depth <- as.factor(res_db$max_depth) # Convert tree number to factor for plotting
+res_db$min_child_weight <- as.factor(res_db$min_child_weight) # Convert node size to factor for plotting
+# Print AUC heatmap
+g_2 <- ggplot(res_db, aes(y = max_depth, x = min_child_weight, fill = auc)) + # set aesthetics
+  geom_tile() + # Use geom_tile for heatmap
+  theme_bw() + # Set theme
+  scale_fill_gradient2(low = "blue", # Choose low color
+    mid = "white", # Choose mid color
+    high = "red", # Choose high color
+    midpoint =mean(res_db$auc), # Choose mid point
+    space = "Lab", 
+    na.value ="grey", # Choose NA value
+    guide = "colourbar", # Set color bar
+    aesthetics = "fill") + # Select aesthetics to apply
+  labs(x = "Minimum Child Weight", y = "Max Depth", fill = "AUC") # Set labels
+g_2 # Generate plot
+```
+
+```{r}
+# print error heatmap
+g_3 <- ggplot(res_db, aes(y = max_depth, x = min_child_weight, fill = error)) + # set aesthetics
+  geom_tile() + # Use geom_tile for heatmap
+  theme_bw() + # Set theme
+  scale_fill_gradient2(low = "blue", # Choose low color
+    mid = "white", # Choose mid color
+    high = "red", # Choose high color
+    midpoint =mean(res_db$error), # Choose mid point
+    space = "Lab", 
+    na.value ="grey", # Choose NA value
+    guide = "colourbar", # Set color bar
+    aesthetics = "fill") + # Select aesthetics to apply
+  labs(x = "Minimum Child Weight", y = "Max Depth", fill = "Error") # Set labels
+g_3 # Generate plot
+```
+```{r}
+zero_weight <- (nrow(dftrain)-sum(dftrain$injury))/sum(dftrain$injury)
+
+
+set.seed(23451234)
+mod_xgbetter <- xgboost(data = train_mat, # Set training data
+               
+              eta = 0.02, # Set learning rate
+              max.depth = 7, # Set max depth
+              min_child_weight = 3, # Set minimum number of samples in node to split
+              subsample = 0.9, # Set proportion of training data to use in tree
+              colsample_bytree =  0.5, # Set number of variables to use in each tree
+              gamma = 0,
+               
+              nrounds = 300, # Set number of rounds
+              early_stopping_rounds = 30, # Set number of rounds to stop at if there is no improvement
+              
+              scale_pos_weight = zero_weight,
+               
+              verbose = 1, # 1 - Prints out fit
+              nthread = 1, # Set number of parallel threads
+              print_every_n = 20, # Prints out result every 20th iteration
+               
+              objective = "binary:logistic", # Set objective
+              eval_metric = "auc", # Set evaluation metric to use
+              eval_metric = "error") # Set evaluation metric to use
+```
+```{r}
+boost_preds_bal <- predict(mod_xgbetter, test_mat) # Create predictions for XGBoost model
+
+pred_dat <- cbind.data.frame(boost_preds_bal , dftest_small$injury)#
+# Convert predictions to classes, using optimal cut-off
+boost_pred_class <- rep(0, length(boost_preds_bal))
+boost_pred_class[boost_preds_bal >= 0.5] <- 1
+
+
+t <- table(boost_pred_class, dftest_small$injury) # Create table
+confusionMatrix(t, positive = "1") # Produce confusion matrix
+```
+
+```{r}
+# Extract importance
+imp_mat <- xgb.importance(model = mod_xgbetter)
+# Plot importance (top 10 variables)
+xgb.plot.importance(imp_mat, top_n = 10)
+```
+
