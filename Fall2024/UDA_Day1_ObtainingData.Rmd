@@ -1,0 +1,176 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2024"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Obtaining Data'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Loading local files
+
+### Single file, details known
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+my_file <- ??
+
+```
+
+  
+### Exploring using R
+See what exists if you were to click to open a folder
+```{r}
+list.files("C:/Users/alanski/Documents")
+```
+  
+See what exists in here with the full path
+```{r}
+list.files("C:/Users/alanski/Documents", full.names = TRUE)
+```
+  
+  
+See folder names only; can also look inside for subfolders using **recursive**
+```{r}
+list.dirs("C:/Users/alanski/Documents", recursive = TRUE)
+```
+### Limit with pattern arguments
+```{r}
+list.files("C:/Users/alanski/Downloads/", recursive = TRUE, pattern = "Completed.Rmd", full.names = TRUE)
+```
+
+
+### Read in and combine into one dataframe
+```{r}
+# set up list of file paths
+deg_files <- list.files("C:/Users/alanski/Downloads/", pattern = "Biz.csv", full.names = TRUE)
+
+
+# use purrr to read and combine all at once (it's a loop)
+deg_data <- purrr::map(deg_files, read.csv) %>% 
+  purrr::map(data.frame)
+
+#take a look at the results
+head(deg_data)
+
+```
+
+## Loading files from google drive
+
+### Setup
+First, load the packages
+```{r}
+#(install as needed)
+library(googledrive)
+library(googlesheets4)
+```
+
+### Authenticate
+It's nice to use the same authentication for googledrive and googlesheets4
+
+```{r}
+#authenticate with google drive: follow the interactive prompts to grant access
+drive_auth()
+```
+```{r}
+# then share that authentication with google sheets
+gs4_auth(token = drive_token())
+```
+
+You're now connected.
+
+
+### Explore & Interact
+
+Find files anywhere using keywords
+```{r}
+drive_find("Collaboration",type = "spreadsheet", n_max = 10)
+```
+
+Select and load a file into R
+```{r}
+# file metadata
+ss <- drive_get("UDA 2024 Collaboration")
+
+#as a tibble
+read_sheet(ss)
+```
+Make changes, like adding a new row of data
+```{r}
+sheet_append(ss, data = data.frame(Section = "??", 
+                                   Name = "???",
+                                   MakesSense = "???"))
+
+read_sheet(ss)
+```
+
+Additional functions exist to create entirely new spreadsheets or add sheets within an existing spreadsheet. 
+## Simple APIs
+
+### Let's collect quotable insults
+
+Free, open, no-authentication API.   
+Documentation here: https://evilinsult.com/api/
+  
+*Warning: You may experience LANGUAGE*  
+  
+Load packages
+```{r}
+library(httr2)
+library(jsonlite)
+```
+
+
+Set up and make the request: explore what you get at each stage
+```{r}
+req <- request("https://evilinsult.com/generate_insult.php?lang=en&type=json")
+#check the setup
+print(req)
+
+#run it
+raw_insult <- req_perform(req)
+#check the result
+raw_insult
+names(raw_insult)
+str(raw_insult)
+raw_insult$body
+
+#wow that body looks weird. we have to decode it
+my_insult <- resp_body_json(raw_insult) 
+str(my_insult)
+
+#convert to dataframe
+data.frame(my_insult)
+
+```
+
+### Why do we want the JSON result instead of text?
+You can test it out, but the text result only provides the quote and none of the attribution or stats.
+We want it all!
+
+# Challenge!
+ - Append your insult to the "UDA Insults" google sheet.  
+ - Check the sheet ahead of time to see what structure your insult should be in.  
+ - Done early? Generate a few more insults (try different languages, perhaps!) and add them also
+```{r}
+
+```
+
+
+## Simple Scraping Example
+
+Pull in a table of data
+```{r}
+
+```
+
