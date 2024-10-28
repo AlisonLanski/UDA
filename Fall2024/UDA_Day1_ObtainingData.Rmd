@@ -169,8 +169,59 @@ We want it all!
 
 ## Simple Scraping Example
 
-Pull in a table of data
+### Pull in a table of data by position
+Let's grab the consumer price index
 ```{r}
+#we need packages and pipes
+library(rvest)  #rvest is a packaged designed for scraping
+library(magrittr)
 
+#we need a link to scrape from 
+cpiLink <- "https://www.usinflationcalculator.com/inflation/consumer-price-index-and-annual-percent-changes-from-1913-to-2008/"
+
+#we need to pull what we want from the HTML
+#first we read in the code from the link
+cpiTable <- read_html(cpiLink) %>% 
+  #then we pull in the table elements as a list
+  html_table(header = TRUE) %>% 
+  #then we select the particular list item we want, and return it as a tibble.  
+  #The (1) is the list index
+  `[[`(1)
+
+#take a look
+rbind(head(cpiTable, 3), tail(cpiTable, 3))
+
+#can you clean it up so the first row becomes column names?
 ```
 
+### Pull in a table of data by HTML information
+
+When we use the **html_table** function, it gets a list of every table on the page, whether it is 1 or 100 tables. The extraction is great when you know which table you want and the indexed order of it will never change. However, you might run into the case where it does change. 
+
+Let's see what we might be able to do to program around that.
+
+```{r}
+#same startup
+topFilms <- "https://en.wikipedia.org/wiki/List_of_highest-grossing_films"
+
+topFilmsRead <- read_html(topFilms)
+
+
+table_number <- 
+  topFilmsRead %>% 
+  
+  #we have to look within the HTML to find the bits that are tables
+  html_nodes("table") %>%
+  #and then within those bits, we are looking for this particular character string 
+  #(TRUE if found, FALSE if not)
+  grepl(">Highest-grossing films<", .) %>%
+  # Then we ask which table index value is TRUE 
+  which(. == TRUE)
+
+# And we use that value, as before, to pull in the table datsa.  WHEW.
+topFilmsRead %>% 
+  html_table() %>% 
+  `[[`(table_number)
+```
+
+Nodes and pattern searches can get much more complicated, but require knowledge of html tags --- we don't need to go that far here. 
