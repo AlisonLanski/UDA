@@ -86,3 +86,4 @@ emailwords <- unnest_tokens(messages, word, contents)
 emailwords %>% count(word, sort = T) %>% 
   anti_join(stop_words, by = "word") %>% 
   slice_max(order_by = n, n = 20)
+

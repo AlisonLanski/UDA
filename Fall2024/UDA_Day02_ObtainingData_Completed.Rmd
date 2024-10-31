@@ -23,7 +23,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 
-my_file <- ??
+my_file <- read.csv("C:/Users/alanski/Documents/GitHub/UDA/Fall2024/Data/Deg_ND_Biz.csv")
 
 ```
 
@@ -46,7 +46,7 @@ list.dirs("C:/Users/alanski/Documents", recursive = TRUE)
 ```
 ### Limit with pattern arguments
 ```{r}
-list.files("C:/Users/alanski/Downloads/", recursive = TRUE, pattern = "Completed.Rmd", full.names = TRUE)
+list.files("C:/Users/alanski/Documents/", recursive = TRUE, pattern = "produce_", full.names = TRUE)
 ```
 
 
@@ -150,8 +150,7 @@ my_insult <- resp_body_json(raw_insult)
 str(my_insult)
 
 #convert to dataframe
-data.frame(my_insult)
-
+insult_df <- data.frame(my_insult)
 ```
 
 ### Why do we want the JSON result instead of text?
@@ -159,10 +158,13 @@ You can test it out, but the text result only provides the quote and none of the
 We want it all!
 
 # Challenge!
- - Append your insult to the "UDA Insults" google sheet.  
- - Check the sheet ahead of time to see what structure your insult should be in.  
- - Done early? Generate a few more insults (try different languages, perhaps!) and add them also
+ - Find and connect to the "UDA 2024 Insults" google sheet.
+ - Review the columns in that sheet
+ - Update your insult dataframe to match the sheet setup
+ - Append your insult to a new row in the google sheet.  
+ - Don't like your insult or want to try to mess with the URL call? Try another one and/or see if you can get an insult in a different language.  (Feel free to add these to the sheet also).  This step is recommended but not required. 
 ```{r}
+#your code here
 
 ```
 
