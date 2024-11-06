@@ -1,0 +1,268 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2024"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Preparations & Counting'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Well well well, What do we have here? 
+*First explorations of a new dataset*
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#load initial packages
+library(tidyverse)
+```
+
+  
+## Let's read in some data and check it out
+
+```{r}
+library(googledrive)
+library(googlesheets4)
+```
+Auth problems? You can skip this part -- and some of the next code
+*If you're stuck? You can open the actual google sheet in Drive, download a csv from it, and read that in below instead*
+```{r}
+drive_auth()
+gs4_auth(token = drive_token())
+```
+
+```{r}
+drive_find("UDA 2024", type = "spreadsheet", n_max = 10)
+```
+
+Read in the google sheets data.
+```{r}
+ss <- drive_get("UDA 2024 Insults")
+df_raw <- read_sheet(ss, range = "Sheet1!C:E", col_types = "c")
+```
+
+Minor data cleanup
+```{r}
+df <- df_raw %>% 
+  filter(!is.na(Insult), nchar(Insult) > 3) %>% 
+  group_by(Insult) %>% 
+  summarize(CreatedBy = max(CreatedBy, na.rm = T),
+                           TimesShown = max(TimesShown, na.rm = T)) %>%
+  filter(str_detect(Insult, pattern = "^[:alpha:]"))
+```
+
+
+#### Who has created the most distinct insults?  
+```{r}
+
+```
+
+
+#### What are those "top creator" insults?
+```{r}
+
+```
+
+
+## "Bag of words" methods
+
+*How do we find the words?*
+*What issues might we run into?*
+
+### Dividing and Counting
+Can you count how many words there are in one Insult? In all the insults?  
+Is there a typical length of an insult?
+Are there particular words that might be relevant to or associated with insults?
+
+
+How can we find individual words in an insult?
+```{r}
+
+```
+
+
+```{r}
+#let's count
+
+```
+
+### Is there an easier way?
+Yes, of course, this is R.
+```{r}
+#load package
+
+```
+Divide and prep
+```{r}
+#use package
+
+```
+What changes were made from the starting text to the version? 
+```{r}
+#write code to explore as needed
+
+
+```
+
+#### Do it again with new data
+Let's look at some news articles about the election
+**As before, download as csv and read in if google drive is not working for you**
+```{r}
+#Get the other data
+ss2 <- drive_get("UDA 2024 Election News")
+df_raw <- read_sheet(ss2)
+```
+
+Divide & prep
+```{r}
+
+```
+
+
+#### Can we combine our data sources?
+We still want to know which words are from which sources
+```{r}
+
+```
+
+
+## Counts are surprisingly useful
+
+### Which words are most common overall? 
+### Which words are most common in each data source? 
+
+Can you create a top-five or top_ten list of words for the whole file? 
+Can you create a top-five or top_ten list of words for each source?
+*Store these as new objects called "top_by_file" and "top_by_doc"*
+
+```{r}
+#everyone loves a "top" list
+
+```
+
+## Can we get a better list of common words?
+Yes, of course. 
+
+```{r}
+#load vocabulary lists
+
+```
+How many lexicons are there? 
+How many words are there in each lexicon?
+*Do you want more dictionary options? Try the "stopwords" package.  It has additional stop words dictionaries, including support for foreign languages.*
+```{r}
+#explore lexicons
+
+
+```
+
+What happens to our counts if we remove the stopwords using the SMART lexicon?
+```{r}
+#remove SMART words
+
+```
+Can we see which stopwords were removed?  
+(Are there any we might want to keep?)
+```{r}
+#review what we lost
+
+```
+
+If we look at top 5/top 10 again -- is this more meaningful? 
+```{r}
+
+```
+
+  
+# Challenge Task 1: Create a wordcloud to visualize your data
+## Everyone loves a good wordcloud
+
+Yes, you can do this manually in ggplot by setting different random x and y values for each word and then replacing a scatterplot point with the word itself but... that's a lot of work.
+
+Instead. use this new-to-you package
+```{r echo = FALSE, eval = FALSE}
+# you'll probably need to install this package
+# this chunk of code will be ignored when you knit 
+install.packages("wordcloud")
+```
+
+```{r}
+#load new package
+library(wordcloud)
+```
+
+
+Take a look at the help file for the wordcloud function.  
+
+```{r echo = FALSE, eval = FALSE}
+#view help
+help(wordcloud)
+```
+
+
+  
+  
+You'll need to use a minimum of two arguments: 
+
+1. the dataframe column that has your words for the "words" argument (use $ notation in the function)  
+2. the dataframe column that has your counts for the "freq" argument (use $ notation in the function)  
+  
+After you get those two arguments working, look at the help page and try out two MORE optional arguments. These arguments will (in some way) change the appearance of your plots.  
+  
+  
+*Use either the insults or the south bend part of the data*  
+  
+Note that the 2D position of the words is random by default.  
+If you want a consistent placement, set a seed before you build the wordcloud  
+(And if you don't like the picture it makes, try different seeds)  
+```{r}
+#your wordcloud here
+
+```
+
+This wordcloud uses mandatory arguments for the words and the wordcounts, then uses optional arguments to try to improve the overall look. There are many other optional arguments that can be used instead of these (or in addition) which you can see from the help page.  
+  
+
+    
+#### Put on your Data Viz hat. How did your two "optional arguments" affect the preattentive qualities of your visualization? Are your updates better than the default arguments? Why/why not?
+
+  
+  
+# Challenge Task 2: ggplot to visualize count data  
+  
+Note: the behavior of your data below will depend a little bit on how you created your counts above. If you use `group_by`, your data will retain a grouped structure by default.  If you use `count`, your data will be treated like a standard dataframe instead of structurally grouped.  
+  
+## Plot it!
+
+*Start with either insults or articles (counted) and build up your code piece by piece*
+  
+ * Can you create a bar chart that shows words and their wordcounts?  
+ * Can you limit your bar chart to show only the top (x) words? (Pick a value for X)
+ * Can you customize the title?
+ * *Challenge-er:* Can you flip your axes so the words are on the y-axis and the counts are on the x-axis? (look it up!)
+ * *Challenge-est:* Can you automatically sort the bars from most-to-fewest? This needs to happen within a *mutate* using the `reorder` function (look it up!) 
+
+
+```{r}
+
+
+```
+    
+This is pretty simple but does add a nice visual piece. To make it even better, I could try to put the words onto the bars and label the bar-ends with counts. Then I wouldn’t even need the axes at all, for a much cleaner graph. For a simple barchart like this, it’s also fine to include more words — how many depends (to some extent) on the space you have available. 
+
+*Can you do something similar to what you did above, but keep all the data (south bend & insults) and facet the graph to have separate bars for each topic?*
+
+```{r}
+
+
+
+```
+

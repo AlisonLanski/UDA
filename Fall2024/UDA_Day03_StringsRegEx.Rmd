@@ -121,8 +121,8 @@ Who loves fruit? I do!
 Let's make a new set of strings to practice anchors
 ```{r}
 fruits <- c("strawberry", "blueberry", "raspberrrrry", "blackberrry", 
-           "peaches", "pears", "kiwi", "papaya", "plums", "banana", 
-           "honeycrisp", "winesap apples")
+           "peaches", "pears", "kiwi", "apricot", "papaya", "plums", "banana", 
+           "honeycrisp", "winesap apples", "oranges")
 ```
 
 Can you find the fruit strings that are plural?
@@ -154,22 +154,34 @@ For example: "az"
 
 ```
 
-Can you find every word that has an a doubled letter (one letter, repeated)?
+Can you find every word that has exactly two Rs in a row?
+*Use a number thing, don't just type rr*
+```{r}
+
+```
+
+Can you find the fruits that start with a vowel?
 ```{r}
 
 ```
 
 
-Can you show me these fruits but with no vowels in them?
+Can you show me these fruits but with no vowels in them (i.e. remove them)?
 ```{r}
 
 ```
 
 Challenge: Let's try some emails
 ```{r}
-emails <- c("bob.ross@aol.com", "michelin.man@hotmail.com", "mario@yahoo.com", 
+emails <- c("bob.ross.100@aol.com", "m1chel1n.man.@hotmail.com", "mario@yahoo.com", 
             "minions@gmail.com", "moana@gmail.com", "zelda@gmail.com") 
 ```
+
+Can you show me the emails that have numbers in them?
+```{r}
+
+```
+
 
 Can you show me the email address domains? (e.g. just "aol")  
 Hint: do this in two steps.  

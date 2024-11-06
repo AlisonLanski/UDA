@@ -1,0 +1,145 @@
+---
+title: 'Wrangling Review with R: Data manipulation'
+output:
+  html_document:
+    df_print: paged
+---
+
+## Instructions
+Add code below to perform the requested actions.  
+Submit your final result as a knitted HTML file to Canvas.  
+
+I am hoping that Q1-Q5 are familiar and will take no more than 15-20 minutes
+I expect that Q6+ may have some things you don't know.  Take a look and try them, but don't spend a lot of time if you're stuck.
+
+Free startup
+```{r startup, include = F}
+library(dplyr)
+library(tidyr)
+glimpse(starwars)
+```
+
+
+### Q1
+Limit the starwars dataset to only include the columns  
+*name, height, mass, hair_color, eye_color, skin_color, and species*  
+and assign it to the object sw  
+Hint for this and following: https://r4ds.had.co.nz/transform.html
+```{r Q1}
+
+#tidyverse
+sw <- starwars %>% 
+  select(name, height, mass, hair_color, eye_color, skin_color, species)
+
+#base R
+sw <- starwars[, c("name", "height", "mass", "hair_color", "eye_color", "skin_color", "species")]
+
+#show the output
+colnames(sw)
+```
+
+### Q2
+Using your new dataset, how many individuals have each hair color?
+```{r}
+
+# base R table format
+table(sw$hair_color)
+
+# tidyverse simple dataframe format
+sw %>% count(hair_color)
+
+#tidyverse grouped dataframe format
+sw %>% group_by(hair_color) %>% summarize(count = n())
+
+```
+
+
+### Q3
+Limit your new dataset *sw* further to **only** include characters who are taller than 181cm
+```{r Q2}
+#tidyverse
+sw_taller <- sw %>% filter(height > 181)
+
+#base R
+sw_taller <- sw[sw$height > 181,]
+
+#show some output
+min(sw_taller$height, na.rm = TRUE)
+```
+
+
+### Q4
+Create a new column for the base starwars data that converts cm to inches, called "height_inch"  
+The value should be height divided by 2.54 
+```{r Q4}
+#tidyverse
+starwars <- starwars %>% mutate(height_inch = height/2.54)
+
+starwars$heigh_inch <- starwars$height/2.54
+
+#show some results
+paste("Characters who are", starwars$height[1], "in cm are", starwars$height_inch[1], "in inches")
+```
+
+
+## This is where it might start to get harder: we'll review these things in class as needed
+
+### Q5
+Order your revised dataset alphabetically by name, and show the first 10
+```{r Q3}
+#tidyverse
+sw_names <- sw %>% arrange(name)
+
+#base R
+sw_names <- sw[order(sw$name),]
+
+
+#show some output (adjust/add to this code if necessary)
+head(sw_names, 10)
+#or
+sw_names[1:10, ]
+```
+
+### Q6
+For each species as a group, calculate and show the *average height in inches* and the *average mass*.  
+```{r Q5}
+
+#tidyverse
+sw_metrics <- starwars %>% 
+  group_by(species) %>% 
+  summarize(mean(height_inch), 
+            mean(mass))
+
+#base R --- I'm not good at this!
+# here is one stat only with tapply
+sw_metrics <- tapply(starwars$height_inch, starwars$species, mean)
+
+# here are both stats with aggregate
+sw_metrics <- aggregate(starwars[c("height_inch", "mass")], list(starwars$species), FUN = mean)
+
+#show some results 
+sw_metrics
+```
+
+
+
+### Q7
+Make the sw data more vertical/taller (pivot longer) by combining the information 
+from eye_color, hair_color, and skin_color  
+into one column (called "descriptor" with values like "eye_color" and "hair_color")   
+and a second column (called "color" with values like "blue" and "blond").  
+Hint: https://r4ds.had.co.nz/tidy-data.html
+
+*Honestly, I don't know how to do this in Base R successfully.  Tidyverse or bust!  
+```{r}
+
+#tidyverse
+sw_pivoted <- sw %>% pivot_longer(cols = c(eye_color, hair_color, skin_color), 
+                                  names_to = "descriptor", 
+                                  values_to = "color")  #your code here
+
+#show some results
+sw_pivoted
+```
+
+
