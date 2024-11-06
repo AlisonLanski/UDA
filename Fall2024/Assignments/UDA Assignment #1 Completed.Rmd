@@ -1,0 +1,124 @@
+---
+html_document:
+  toc: yes
+author: "Your Name Here"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'UDA Assignment #1 - Fall 2024'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+# Preliminaries
+Load basic packages and adjust 
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(RedditExtractoR)
+```
+
+## Extraction code - step 1
+Get your OWN reddit starting data and assign it to a new dataframe.  
+Use `find_thread_urls` to get a set of top-level posts. Check the package documentation to see possible arguments.  
+You want to get 500-1000 results.  
+```{r cache=TRUE}
+df <- find_thread_urls(subreddit = "Pasadena", sort_by = "new", period = "year")
+head(df)
+```
+
+## More extraction
+We don't just want top-level post in general, we want details about them AND we want the conversation (comments) on the posts.  
+  
+Use `get_thread_content` to download comments.  
+You need to give this function top-level URLs as the first argument: get these from the dataframe you just created above.  
+You want a lot of comments, but don't need ALL of them. You can try limiting the number of URLs used (brackets work great for this) and see how many you get back -- go up if you want more. (Aim for at least 1000 comments overall, more will give you better data in the long run).
+   
+NOTE: This data will come back as a *list*, with two elements.  ONE of those elements has the top-level content with MORE details (hooray!). The other element has the comments on the original topics (also hooray!).  We want BOTH of these, saved as separate dataframes instead of as elements of a single list. Remember, you can do list-item selection using brackets or dollar signs.
+
+```{r cache=TRUE}
+extraction <- get_thread_content(df$url[1:20])
+str(extraction)
+df_top <- extraction$threads
+df_threads <- extraction$comments
+```
+
+
+
+## Do some cleanup
+Take a look at some of the string data columns (titles, text).  You will probably see weird characters or other things that don't look right.  
+Run some stringr functions below to clean up the data a little.  The details of this are at your discretion. To be SAFE, I suggest putting your cleaned-up text in a new column (so you don't overwrite the original if you make a mistake).
+
+Call those new columns **new_title** and **new_text** (for the top-level) and **new_comments** for the threads. 
+  
+Like this:
+```{r}
+### Sample code, don't run
+#
+# my_df <- my_df %>%
+#   mutate(new_title = str_replace_all(old_title, pattern = "something", replacement = "something-better"),
+#          new_title = str_replace(all(new_title, pattern = "somethingelse", replacement = "something_else_better")))
+#
+### Notice that as soon as you create the new (fixed up) column, 
+### you want to make any additional changes to the new one -- adding new changes to the old ones
+```
+
+Your turn!
+```{r}
+# Ok, I don't have particular code here yet; could add some
+df_top <- df_top %>%
+  #this isn't real code, just an example of what you might see
+  mutate(new_title = str_replace_all(title, pattern = "", replacement = ""),
+        new_tax = str_replace_all(text, pattern = "", replacement = ""))
+
+#ok, same idea here
+df_threads <- df_threads %>%
+  mutate(new_comment = comment)
+```
+
+
+## Final details for data submission
+
+Add a new column to each of your dataframes called "netid" and add your info as the value (for me, "alanski").  
+The order of this new column doesn't matter.  
+Then, save both dataframes as CSV files (you can use `write_csv()` from the readr package, it's lovely).  
+Call your dataframes "reddit_top_posts.csv" and "reddit_threads.csv".  Submit these together to Assignment #1 for Data
+
+```{r, eval = FALSE}
+df_top$netid <- "alanski"
+df_threads$netid <- "alanski"
+
+write_csv(df_top, "C:/Users/alanski/Downloads/reddit_top_posts.csv")
+write_csv(df_threads, "C:/Users/alanski/Downloads/reddit_threads.csv")
+```
+
+
+## WRITE: Speculate a little
+Imagine that you work for the marketing/communications team of your city. What value might they get of your (future) analysis of this data? In other words, what kind of insights might they be interested in and why? Related: do you think the mayor would find anything interesting here -- why or why not?  
+*Note: you do NOT need to analyze any data to answer this question.  Scroll through the website a little bit to get a sense of what's there, and work with that general knowledge*   
+
+Write a few sentences - no need for a big essay.  I just want you to think a little. :}
+  
+### Your answer below 
+(just type text in the empty space -- no code chunk needed)
+
+*Some text!*  
+  
+## WRITE: Consider future analysis
+If you were going to analyze this data with some kind of *grouping* (not just each post separately), how would you want to group it? Why would that grouping be interesting? Think about what pieces of information are available in your dataframes
+
+### Your answer below 
+(just type text in the empty space -- no code chunk needed)
+  
+  *More text!*
+  
+  
+  
+  

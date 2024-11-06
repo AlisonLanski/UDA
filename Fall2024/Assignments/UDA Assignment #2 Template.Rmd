@@ -1,0 +1,63 @@
+---
+html_document:
+  toc: yes
+author: "Your Name Here"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Assignment #2 - Fall 2024 - Insights from Counting'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+# Preliminaries
+Load basic packages and data 
+```{r echo = TRUE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(tidytext)
+```
+
+Bring in data and explore a little. Decide what you want to analyze. Set up a new column for high/medium/low engagement.
+```{r}
+dat <- read_csv("A CSV file from Assignment #1.csv")
+```
+
+
+
+# Counting
+
+### Find "most common words" for the corpus (all together)
+Preprocess and get counts/frequencies
+```{r}
+
+```
+
+### Find "most common phrases" (all together)
+Preprocess and get counts/frequencies
+```{r}
+
+```
+
+### Find "most important words" by group (what to group by is up to you!)
+Preprocess and get tf-idf values based on your groupings
+```{r}
+
+```
+
+# Final Recommendation for M&C/leadership-- Thoughts and Visual
+*Find the flowers amid all the weeds.* 
+
+```{r}
+
+```
+
+## A small reflection
+*For yourself or other analysts*
