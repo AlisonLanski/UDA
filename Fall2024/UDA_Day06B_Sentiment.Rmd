@@ -30,7 +30,10 @@ library(tidytext)
 First step: getting lexicons  
 *For some, you have to download them: switch to the console to approve download*
 ```{r}
+# this one for free
 bing <- get_sentiments(lexicon = "bing")
+
+# also load two more!
 
 ```
 
@@ -54,6 +57,9 @@ Let's take a look
 First, we have to get our text data ready
 
 ```{r}
+library(googledrive)
+library(googlesheets4)
+
 
 #read in
 drive_auth()
@@ -90,15 +96,30 @@ Combine words with sentiment: afinn
 ```
 
 
-
-## How might we graph polarity?
+### What results do we get using bing?
 ```{r}
 
 ```
 
 
+## How might we graph polarity?
+"up-down" bar chart
+```{r}
+
+```
+
+## Graphing if you have many neutral values?
+scatterplot
+```{r}
+
+```
+
+
+
 ## Which emotions are present in each story?
 ### Which emotion is the most prevalent? What is the mix like? 
+
+Which lexicon do we need?
 ```{r}
 #which emotion is the most prevalent in each story?
 
@@ -113,7 +134,7 @@ Combine words with sentiment: afinn
 
 ### Let's visualize the mix of emotions within a document
 ```{r}
-library(RColorBrewer)
+library(RColorBrewer)  #for more color options
 
 dat_words %>%
   inner_join(nrc, by = "word") %>%
@@ -127,36 +148,6 @@ dat_words %>%
   coord_flip() +
   theme_minimal() +
   ggtitle("Sentiment range for each story")
-
-```
-
-
-
-# What about context: issues like valence?
-## Can we view sentiment at a higher level, beyond single words?
-
-Yes, of course we can!  
-
-This capability lets us account (to some extent) for valence shifters.
-
-### Implementing higher-level sentiment
-The tidytext package is set up for word-level only.  That means we have to shift to the `sentimentr` package.  
-  
-Let's find new sentiment values for each story, taking valence into consideration
-```{r}
-library(sentimentr)
-
-
-```
-
-How can we easily check for example sentences or review the scoring more visually?
-```{r}
-
-```
-
-### Challenge
-Instead of going story-by-story, can we look at these stories by groups? What groups might makes sense? Set it up, and redo sentiment analysis to get more general insights (if any!)
-```{r}
 
 ```
 

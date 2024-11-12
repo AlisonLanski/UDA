@@ -1,0 +1,198 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2024"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Analyzing Text: Advanced Counting with TF-IDF'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+# How do we implement TF-IDF?
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load initial packages
+library(tidyverse)
+library(tidytext)
+library(googledrive)
+library(googlesheets4)
+```
+
+```{r}
+# read it in and save - free code!
+drive_auth()
+gs4_auth(token = drive_token())
+ss <- drive_get("UDA 2024 South Bend")
+dat <- read_sheet(ss)
+```
+### Start with minimal prep
+Set up a grouped dataframes (TF-IDF needs some kind of grouping so we can compare one group to another)  
+Add total wordcount, and, for each word, a percent of total
+```{r}
+counts_by_section <- dat %>% 
+  unnest_tokens(output = "word", input = "SB_Thoughts") %>%
+  group_by(Section, word) %>%
+  summarize(wordcount = n()) %>%
+  arrange(Section, -wordcount) %>%
+  group_by(Section) %>%
+  mutate(total_words = sum(wordcount),
+         term_freq = wordcount/total_words)
+
+# one way explore results
+head(counts_by_section)
+tail(counts_by_section)
+
+# another way to explore results
+counts_by_section %>% slice_max(order_by = wordcount, n = 3)
+```
+ Ok so the initial counts aren't that interesting, since we didn't remove stopwords...but just wait!
+
+## How "important" is a particular word to a particular document?
+**Importance** can often be measured by **count** or **frequency**, but sometimes important words aren't the most common, but the most unique. This is particularly true if we're trying to understand what makes some documents *different* from each other.
+
+For example, if you read a "how to play soccer" and "how to play lacrosse" guide, they are both going to talk about balls, fields, goals, players, lines, shots, passing, fouls, etc.  But there may be specific vocabulary that appears more (or more often) in one document than in the other. For example, lacrosse might talk about the "cradle"; soccer might talk about "headers": these would be potentially very relevant, even if they don't show up very often.
+
+#### How do get to an idea of uniqueness or importance? 
+We already have frequency measures (count/total). We can add a measure for the proportion of documents that contain a particular word.  
+  
+For example: How many documents use "restaurant?" How many documents use "campus"? How may documents use "the"? (Out of the total number of documents).  
+  
+Let's calculate this and add it to our `counts_by_section` dataframe
+```{r}
+# now with document frequencies
+# first we need to know how many total documents
+
+#when looking at the data by a group or category, 
+#each "combined set of words from that category counts as a document
+
+# I find this easiest to do in two steps
+# first I get the total docs on its own
+total_docs <- length(unique(counts_by_section$Section))
+
+#or simpler? 
+total_docs <- counts_by_section %>% count(Section) %>% nrow()
+
+
+
+# Then, I get the number of docs each word is used in
+# and combine info to produce a document frequency
+
+counts_by_section <- counts_by_section %>% 
+  
+  # get the number of docs we find each word in
+  group_by(word) %>%
+  mutate(docs_with_word = n()) %>%
+  
+  # do a final calculation
+  mutate(docs = total_docs,  # this is from the previous calculation above
+         doc_freq = docs_with_word/docs)  #finally!!!!
+
+counts_by_section %>% head()
+  
+```
+Top words are found in both documents, so they have a frequency of 1.
+  
+### Now we get fancy: TF-IDF
+We want to take our "term percent" concept and our "document ratio" concept and combine them to normalize the data.
+Check the slide deck for a full explanation of the math.
+
+TF-IDF = Term Frequency - Inverse Document Frequency  
+
+Intuition: Important words are used a lot within a document, and are rarely used in other documents.  
+
+ * "used within a document" is the count, weighted by total wordcount (term frequency)
+ * "used in other documents" is the document frequency we just calculated
+ * to get "RARELY used in other documents", we take the inverse document frequency 
+ * because IDF is usually much larger than TF, we take the log of IDF as a way to re-scale it
+
+Formula: term_frequency * log(inverse(document_frequency))
+
+```{r}
+#let's calculate TF-IDF "by hand", then pull out some "important" words by group
+counts_by_section %>% 
+  mutate(tf_idf = term_freq * log(1/doc_freq)) %>%
+  group_by(Section) %>%
+  slice_max(order_by = tf_idf, n = 4) %>%
+  select(Section, word, wordcount, tf_idf)
+
+```
+
+Look! No stopwords show up!  Where are they?  Look at the bottom set
+
+```{r}
+#let's calculate TF-IDF "by hand", then pull out some "important" words by group
+counts_by_section %>% 
+  mutate(tf_idf = term_freq * log(1/doc_freq)) %>%
+  group_by(Section) %>%
+  slice_min(order_by = data.frame(-wordcount, tf_idf), n = 4) %>%  ## This is the only changed line from above
+  select(Section, word, wordcount, tf_idf)
+```
+Found them!  Stopwords were used in all documents, so they get scores of 0
+  
+### Do we have to do TF-IDF by hand? Of course not!
+Use the tidytext package function instead
+
+Let's try this on our Thoughts data, where we group by feelings and then count
+```{r}
+#you do have to pre-count your data for this to work
+
+counts_by_feeling <- dat %>% 
+  unnest_tokens(output = "word", input = "SB_Thoughts") %>%
+  group_by(SB_Feeling, word) %>%
+  summarize(wordcount = n()) %>%
+  arrange(SB_Feeling, -wordcount)
+
+# check it out
+counts_by_feeling %>% slice_max(order_by = wordcount, n = 3)
+
+# now add TF-IDF code and look at some top hits
+counts_by_feeling %>% 
+  bind_tf_idf(term = "word", document = "SB_Feeling", n = "wordcount") %>%
+  slice_max(order_by = tf_idf, n = 3)
+
+```
+Notice that the “tf” computed by the package function can be multiplied by 10000 again to get our word rate. IDF isn’t usually interesting on its own. The TF-IDF values here can be matched by doing manual calculations, like the code farther up.  
+  
+
+# Your Turn
+
+## Can you do TF-IDF with ngrams?
+It’s the same code as before, grouping, tokenizing, counting, TF-IDF.  
+The only difference is how we tokenize, and the related column names.  
+
+Choose either grouping (feelings or section) and try the package's tf-idf with a ngram (recommended: bigrams or trigrams)
+```{r}
+# your code here
+
+```
+
+  
+Note: we aren't getting tons of data here  
+  
+## Visualizing
+For any of the things done here, it’s simple to take your final dataframe and create visualizations out of it. You can create wordclouds, bar graphs, or faceted bar graphs just like you did with simple counts. The only different in plotting is that you’ll have to use the correct column names for the data you want to look it. For example, you might want to use TF-IDF values instead of raw counts when selecting words to graph.  Because the details change but the overall code setup is identical, no plotting code is included here. If you want to practice, you can copy and adjust the code from the previous day's code file.
+
+
+## Ways to adjust TF-IDF to solve potential problems
+Sometimes TF-IDF is a little too constrained. 
+```{r}
+# Want to implement smoothing? (extra idea, see slides)
+# In that case, we have to compute TF-IDF manually so we can adjust the calculation, 
+# for example, our mutate might look like
+
+#  my_prepared_data %>%
+#    mutate(regular_tf_idf = term_freq * log(1/doc_freq),
+#           smoothed_tf_idf = term_freq * log(1 + 1/doc_freq))
+
+
+```
+Smoothing DOES allow stopwords to sneaking back into top words, but usually not as many as before.  Smoothing can be more effective with a larger number of documents or longer texts. You need enough unique words to have precedence over the stopwords, or high frequency of shared words in one document and low frequency of the same words in other documents.  Otherwise smoothing won't have much helpful effect.   
