@@ -23,6 +23,8 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 # load initial packages
 library(tidyverse)
 library(tidytext)
+library(googledrive)
+library(googlesheets4)
 ```
 
 ```{r}
@@ -31,14 +33,24 @@ drive_auth()
 gs4_auth(token = drive_token())
 ss <- drive_get("UDA 2024 South Bend")
 dat <- read_sheet(ss)
+
+head(dat)
 ```
 
 ### Review -- basic startup
 Tokenize by word, remove stopwords (any/all), count  
 
-Save reults in a dataframe for more use later.
+Save results in a dataframe for more use later.
 ```{r}
+sb_counts <- unnest_tokens(dat, 
+              output = "word",
+              input = "SB_Thoughts",
+              token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(word, sort = T)
 
+head(sb_counts)
+glimpse(sb_counts)
 ```
 
 
@@ -71,7 +83,14 @@ If you want a *consistent* placement, set a seed before you build the wordcloud
 (And if you don't like the picture it makes, try different seeds)  
 ```{r}
 #your wordcloud here
-
+wordcloud(words = sb_counts$word,
+          freq = sb_counts$n,
+          max.words = 50,
+          min.freq = 6,
+          random.order = FALSE,
+          rot.per = 0.4,
+          random.color = FALSE,
+          colors = c("darkgreen", "pink", "navy", "gold"))
 ```
 
 
@@ -91,7 +110,16 @@ Note: the behavior of your data below will depend a little bit on how you create
 
 
 ```{r}
-
+sb_counts %>%
+  head(15) %>%
+  ggplot(aes(x = reorder(word, n), 
+             y = n)) +
+  geom_bar(stat = "identity") +
+  xlab("word") +
+  ylab("count") +
+  coord_flip() +
+  ggtitle("Top words from class writing about South Bend") +
+  theme_minimal()
 
 ```
     
@@ -109,7 +137,12 @@ Note that *phrases* are repeated less often than *individual words* so you typic
 
 Let's tokenize into phrases and then count
 ```{r}
-
+unnest_tokens(dat, 
+              output = "bigram",
+              input = "SB_Thoughts",
+              token = "ngrams",
+              n = 2) %>%
+  count(bigram, sort = T)
 
 ```
 
@@ -127,7 +160,7 @@ An “ngram stopword lexicon” doesn't exist (yet?), so the process is a little
   
 First, I am going to save my stopwords out in a separate vector.  
 ```{r}
-
+# SKIP
 ```
 
 
@@ -135,8 +168,39 @@ Then, to remove stopword bigrams, we have to find the bigrams that are composed 
   
 One way to do this is: break the bigram words into 2 columns, check against stopwords, remove rows with both 
 ```{r}
-
+unnest_tokens(dat, 
+              output = "bigram",
+              input = "SB_Thoughts",
+              token = "ngrams",
+              n = 2) %>%
+  separate(col = "bigram", 
+           into = c("w1", "w2"), 
+           sep = " ", 
+           remove = FALSE) %>%
+  #this will remove ANY bigram with a stopword
+  filter(!(w1 %in% stop_words$word),
+         !(w2 %in% stop_words$word)) %>%
+  count(bigram, sort = T) %>%
+  head(12)
 ```
+I like that the idea of a "bubble" shows up here, which we might not otherwise notice. (Bubble itself is much less common than other single words)
+
+```{r}
+unnest_tokens(dat, 
+              output = "bigram",
+              input = "SB_Thoughts",
+              token = "ngrams",
+              n = 2) %>%
+  separate(col = "bigram", 
+           into = c("w1", "w2"), 
+           sep = " ", 
+           remove = FALSE) %>%
+  #this will only remove bigram if BOTH words are stopwords
+  filter(!(w1 %in% stop_words$word & w2 %in% stop_words$word)) %>%
+  count(bigram, sort = T) %>%
+  head(12)
+```
+
 
 Now you can see common multi-word phrases.  Sometimes more informative than single words, because we're getting a little more context!
 
@@ -159,9 +223,12 @@ Start with your original wordcounts from above, all together.
   
 Save your results as `total_counts`
 ```{r}
+total_counts <- sb_counts %>%
+  mutate(totalwords = sum(n),
+         word_proportion = n/totalwords,
+         word_rate_10000 = round(word_proportion*10000))
 
-
-
+head(total_counts)
 
 ```
 
@@ -178,34 +245,53 @@ Your choice of group: by feeling *or* by section *or* by person (row)
 
 ```{r}
 # make new counts
+group_counts <- unnest_tokens(dat, 
+              output = "word", 
+              input = "SB_Thoughts", 
+              token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  
+  #now, we're doing counts and scaling section-by-section instead of all together
+  group_by(Section, word) %>%
+  summarize(n = n()) %>%
+  mutate(totalwords = sum(n),
+         word_proportion = n/totalwords,
+         word_rate_10000 = round(word_proportion*10000)) %>%
+  arrange(Section, word_rate_10000) %>%
+  slice_max(order_by=word_rate_10000, n = 7)
 
+group_counts
 
 ```  
 
   
 ### Check relative rates -- two ways to write the same thing
-For example: which section/feeling/person uses "the" the most, relative to the other groups? 
+For example: which section/feeling/person uses "campus" the most, relative to the other groups?  
+**Notice: for this example, the N values are inverted from the scaled values**
 ```{r}
 #dplyr version
 #you do have to write a little regex, but I think this code is worth it
 #it's so much easier to read than the base
 group_counts %>%
   arrange(desc(word_rate_10000)) %>%
-  filter(str_detect(word, "^the$")) 
+  filter(str_detect(word, "^campus$")) 
 
 
 #base R version, if you're curious (might be a better way, I'm a tidy girl...):
-one_word <- group_counts[group_counts$word == "the", ] 
+one_word <- group_counts[group_counts$word == "campus", ] 
 one_word[order(one_word$word_rate_10000, decreasing = TRUE), ]
 ```
   
 Try your own: Copy and paste the chunk from above and try a different (more interesting?) word  
+You can reset the data to slice_max a different number (or not slice_max at all) to dig farther down
 
 ```{r}
 #dplyr version, your word
 
 ```
   
+# TF-IDF (not in class, see Tuesday prep)
+
 
 ## How "important" is a particular word to a particular document?
 **Importance** can often be measured by **count** or **frequency**, but sometimes important words aren't the most common, but the most unique. This is particularly true if we're trying to understand what makes some documents *different* from each other.

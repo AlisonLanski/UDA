@@ -1,0 +1,271 @@
+---
+title: "Strings & Regular Expressions"
+author: "Unstructured Data Analytics Fall 2024"
+
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+    highlight: tango
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+In this exercise, we will make use of the `tidyverse` and `stringr` packages. Install and load these packages as needed.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+```
+
+### Lengths
+Let's create a vector with strings so we have something to work with.
+
+```{r}
+strings <- c("ghost of christmas past", "bat", "batman", "pumpkin", "witch", 
+             "pirate", "princess", "skeleton", "pied piper")
+```
+
+How many strings do we have?
+```{r}
+length(strings)
+```
+
+How many characters are in the first string?
+```{r}
+nchar(strings[1])
+```
+
+How many characters are in each of the strings?
+```{r}
+nchar(strings)
+```
+
+### Basic stringr
+
+Let's try some patterns!
+
+How many times does the letter "p" show up in each of the strings?
+```{r}
+str_count(strings, "p")
+```
+
+
+How many words are there in the 1st string? 
+(Hint: start with code like the previous question; make a few changes)
+```{r}
+str_count(strings[1], " ") + 1
+```
+
+
+Let's be edgy!  Replace every "i" with a "y"
+```{r}
+str_replace_all(strings, pattern = "i", replacement = "y")
+```
+
+
+Can you generate T/F values, showing which strings have the word "bat"?
+```{r}
+str_detect(strings, pattern = "bat")
+```
+Can you copy/paste your code above and use it for selection?  
+We want to see a smaller vector of just the strings that include "bat"
+```{r}
+strings[str_detect(strings, pattern = "bat")]
+```
+
+Can we use a stringr function to do the same thing we just did?
+```{r}
+str_subset(strings, pattern = "bat")
+```
+
+Can we use a stringr function to just get us the "bat"s from the original text?  
+(Not the rest of the words, just the "bat")
+```{r}
+str_extract(strings, pattern = "bat")
+```
+
+Can we change every space to be an underscore (_)?
+```{r}
+str_replace_all(strings, " ", "_")
+```
+
+Can we get rid of all spaces (or underscores, pick the appropriate one) entirely?
+```{r}
+str_remove_all(strings, " ")
+str_replace_all(strings, pattern = " ", replacement = "")
+```
+
+
+Captain Holt (of Brooklyn 99) hates contractions.
+Change the words like "wouldn't" into "would not"
+
+```{r}
+#new strings for this question
+holt <- c("I wouldn't know", "They couldn't have eaten all the candy!", 
+          "Don't tell me what to do!")
+```
+
+Fix it here!
+```{r}
+str_replace_all(holt, pattern = "n't", replacement = " not")
+```
+
+
+### Regular expressions
+
+Who loves fruit? I do!  
+Let's make a new set of strings to practice anchors
+```{r}
+fruits <- c("strawberry", "blueberry", "raspberrrrry", "blackberrry", 
+           "peaches", "pears", "kiwi", "apricot", "papaya", "plums", "banana", 
+           "honeycrisp", "winesap apples", "oranges")
+```
+
+Can you find the fruit strings that are plural?
+```{r}
+str_subset(fruits, pattern = "s$")
+```
+
+Can you find the fruit strings that start with p?
+```{r}
+str_subset(fruits, pattern = "^p")
+```
+
+Regex also allows for counting things.  
+  
+Can you find the fruit strings that have at least one "p"?  
+```{r}
+str_subset(fruits, pattern = "p+")
+```
+
+Can you change any strings with 3 or more "r" to have only 2 "r"s??
+```{r}
+str_replace_all(fruits, pattern = "r{3,}", replace = "rr")
+```
+
+Regex patterns are more fun with operators  
+Can you find every "a" with the next letter (whatever it is) that comes after?  
+For example: "az"
+```{r}
+str_extract(fruits, pattern = "a.")
+```
+
+Can you find every word that has exactly two Rs in a row?
+*Use a number thing, don't just type rr*
+```{r}
+str_subset(fruits, pattern = "r{2}")
+```
+
+```{r}
+#why does it find the ones at the end? because it sees the rr and is like "woo! I found it!" and it stops  looking at everything else
+#how could we limit it?  we need the pattern to look at more stuff.  In particular, we need to make sure NO r comes right before or right after the rr
+str_subset(fruits, pattern = "[^r]r{2}[^r]")
+```
+
+Can you find the fruits that start with a vowel?
+```{r}
+str_subset(fruits, pattern = "^[aeiou]")
+```
+
+
+Can you show me these fruits but with no vowels in them (i.e. remove them)?
+```{r}
+str_remove_all(fruits,  pattern = "[aeiou]")
+```
+
+Challenge: Let's try some emails
+```{r}
+emails <- c("bob.ross.100@aol.com", "m1chel1n.man.@hotmail.com", "mario@yahoo.com", 
+            "minions@gmail.com", "moana@gmail.com", "zelda@gmail.com") 
+```
+
+Can you show me the emails that have numbers in them?
+```{r}
+str_subset(emails, pattern = "[:digit:]")
+str_subset(emails, pattern = "[1234567890]")
+str_subset(emails, pattern = "[0-9]")
+str_subset(emails, pattern = "\\d")
+```
+
+```{r}
+#want to count them?  simple base R method:
+table(second)
+```
+
+
+Can you show me the email address domains? (e.g. just "aol")  
+Hint: do this in two steps.  
+You can either remove something in each step OR 
+you can get something and then remove something
+```{r}
+first_step <- str_extract(emails, "@.+")
+second_step <- str_remove(first_step, "\\.[:alpha:]+")
+str_remove(second_step, "@")
+
+#two steps only, nested (yikes)
+str_remove(str_remove(emails, ".+@"), "\\.[:alpha:]+")
+
+#another two step version
+first <- str_remove(emails, "[:graph:]+@")
+second <- str_remove(first, "\\..+")
+second
+```
+
+## Experiments
+What if we want to match all emails without the letters "a", "b", or "c"?  
+You might try this....
+```{r}
+pattern <- "[^a-c]"
+str_subset(fruits, pattern)
+```
+
+But that didn't do what we wanted.  
+Let's try this instead:
+```{r}
+pattern <- "^[^a-c]+$"
+str_subset(fruits, pattern)
+```
+
+**Question for your brain:** What changed in the pattern? Why does the second version work???
+
+  
+#### Experiments with () for groupings and backreferences
+We can use parentheses to group regular expression logic. This allows us to override the default precedence rules. For example, let's say that we want to match words that are spelled as either "`grey`" or "`gray`": 
+
+```{r}
+strings <- c("grey", "day", "gray", "today")
+pattern <- "gre|ay"
+str_subset(strings, pattern)
+```
+
+This doesn't quite give us what we want. This is what we meant to write (using groupings):
+
+```{r}
+strings <- c("grey", "day", "gray", "today")
+pattern <- "gr(e|a)y"
+str_subset(strings, pattern)
+```
+
+Parentheses are also used for what is known as backreferencing.  
+For example, we can match fruits with consecutive repeated pairs of letters in the name.
+```{r}
+pattern <- "(..)\\1"
+str_subset(fruits, pattern)
+```
+What if we want to see fruits that have the same letter 3 times (maybe in a row, maybe not)
+```{r}
+pattern <- "(.).*\\1.*\\1"
+str_subset(fruits, pattern)
+```
+
+**Whew! Can you explain what's going on here?** If so, you're a regex master!
+
+#### Note about groups
+You can have multiple groups in a pattern.  
+In this situation, each () is referenced using an integer, in the order it originally appears.  
+`(abc)(def)ghi(jkl)` has 3 groups: abc is 1, def is 2, jkl is 3. Because ghi isn't in (), it is NOT a group.
