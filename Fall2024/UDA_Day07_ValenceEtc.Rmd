@@ -17,18 +17,79 @@ df_print: paged
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-### Valence
+# Sentiment: Graphing Polarity
 
 
-# What about context: issues like valence?
-## Can we view sentiment at a higher level, beyond single words?
+#### Prep code, from before -- run!
+```{r}
+## copy in from Day 06B completed
+```
+
+
+
+### How might we graph polarity?
+"up-down" bar chart
+```{r}
+
+```
+
+### Graphing if you have many neutral values?
+scatterplot
+```{r}
+
+```
+
+
+# Sentiment with emotion
+
+#### Which emotions are present in each story?
+#### Which emotion is the most prevalent? What is the mix like? 
+
+Which lexicon do we need?
+```{r}
+#which emotion is the most prevalent in each story?
+
+```
+
+
+```{r}
+#what is the mix of emotions like in each story?
+
+```
+
+
+#### Let's visualize the mix of emotions within a document
+```{r}
+library(RColorBrewer)  #for more color options
+
+dat_words %>%
+  inner_join(nrc, by = "word") %>%
+  count(id, feeling, sentiment) %>%
+  filter(!sentiment %in% c("negative", "positive")) %>%
+  ggplot(
+    aes(x = id, y = n, fill = sentiment)
+  ) +
+  geom_col(position = "fill") +
+  scale_fill_brewer(palette = "Set1") +
+  coord_flip() +
+  theme_minimal() +
+  ggtitle("Sentiment range for each story")
+
+```
+
+
+
+# Sentiment: Valence
+
+#### How can we start to incorporate context to help with valence?
+#### Can we view sentiment at a higher level, beyond single words, before we aggregate?
 
 Yes, of course we can!  
 
 This capability lets us account (to some extent) for valence shifters.
 
 ### Implementing higher-level sentiment
-The tidytext package is set up for word-level only.  That means we have to shift to the `sentimentr` package.  
+The tidytext package is set up for word-level sentiment only.  That means we have to shift to the `sentimentr` package.  
   
 Let's find new sentiment values for each story, taking valence into consideration
 ```{r}
@@ -42,73 +103,11 @@ How can we easily check for example sentences or review the scoring more visuall
 
 ```
 
-### Challenge
-Instead of going story-by-story, can we look at these stories by groups? What groups might makes sense? Set it up, and redo sentiment analysis to get more general insights (if any!)
+# Challenge
+Instead of going story-by-story, can we look at these stories by different groups? 
+What groups might makes sense? Set it up, and redo sentiment analysis to get more general insights (if any!)
+
 ```{r}
 
 ```
 
-
-
-### More Visuals -- a class Challenge
-
-
-Bring in data and do basic prep
-*Disclosure: I did not test this code. You may need to update the file path. *
-```{r}
-tidy_words <- 
-    #read in the file
-  read_csv("UDA Fall 2023 Stories v3.csv") %>%
-  
-    #fix capitalization in case we want to group by sport later 
-  mutate(sport = tolower(sport)) %>%
-  
-    #break it into individual words, remove whitespace/punctuation, lowercase
-  unnest_tokens(output = word, input = story, token = "words")  #
-
-tidy_words
-```
-
-*Note: The text uses "tidy_books", but we have "tidy_words".*
-
-
-# New Viz Options for Sentiment
-Chapter 2 of Text Mining with R shows several ways to visualize results related to sentiment.  These methods both help to answer the question "which particular positive and negative words are most common in the text?"  
-  
-Use the code in the book; adapt it as needed, but it should more-or-less just work for you.    
-  
-Choose between  
-
- * Section 2.4: Most positive common positive and negative words
- https://www.tidytextmining.com/sentiment#most-positive-negative
- 
- * Section 2.5: **Comparison** wordcloud
- https://www.tidytextmining.com/sentiment#wordclouds
- 
-(Feeling energetic? Do both!)  
-
-#### Requirements
- * Create one of these sentiment visualizations using our class data (all together, or split by sport - your choice). You can start by copying/typing the code from the correct section of the book.
- * Add comments to the code that explains in simple language what the code is doing in each line or function. For an example, see my code block above. If you don't know one of the lines, it's okay to look this up or ask someone, including Chat GPT - but mention your resources below.
- * Provide a final thought about the results of your code
-
-### Your version of the code here (with comments)
-```{r}
-
-```
-
-###############################################
-## Did you need any help with the commenting?  
- * What did you use? (cheatsheets, stackoverflow, a particular person, chatgpt?)
- * What parts did you need help with?
-
-
-
-###############################################
-## Provide an interpretation or reaction to what is shown in your viz (final thought)
-
-
-
-
-
-###################################################

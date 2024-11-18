@@ -1,0 +1,229 @@
+---
+html_document:
+  toc: yes
+author: "Unstructured Data Analytics, Fall 2024"
+output:
+  html_document:
+    df_print: paged
+always_allow_html: yes
+title: 'Text Analytics: Topic Models'
+toc_float: yes
+theme: spacelab
+highlight: tango
+df_print: paged
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load initial packages
+library(tidyverse)
+library(tidytext)
+```
+
+
+# Can we detect topics in a corpus and categorize documents appropriately? Which key words contribute to each topic?
+
+## Get set up
+```{r}
+# Read in class data
+dat <- read_csv("Data/UDA24_Pasadena.csv")
+
+# Perform basic prep
+dat_words <- dat %>%
+  unnest_tokens(output = word, input = posts, token = "words") %>%
+  anti_join(get_stopwords(source = "smart")) %>% 
+  filter(str_detect(word, pattern = "[:alpha:]")) %>%
+  count(url, word) %>%
+  #add an ID column
+  mutate(url_id = str_extract(url, "(?<=comments/)[:graph:]{7}"))
+
+# Look at results
+head(dat_words)
+```
+
+## Prep data for topic modeling
+We need a document term matrix
+```{r}
+library(topicmodels)
+
+dat_dtm <- dat_words %>% 
+  select(-url) %>%
+  pivot_wider(names_from = word, values_from = n, values_fill = 0)
+
+
+dat_dtm <-  cast_dtm(dat_words, document = url_id, term = word, value = n)
+  
+head(dat_dtm)
+
+```
+
+### QUESTION: What would we expect about the matrix if we switched to ngrams? 
+
+## Run topic models
+We have important parameters here.  
+  
+**alpha** dictates how the topics are distributed across the documents
+
+ * As alpha increases, documents are more likely have a mix of topics
+ * As alpha decreases, documents are more likely to have a single topic
+ * A common default is 50/# of topics (when you have a large corpus)
+ 
+**delta** dictates how the words are distributed across the topics
+
+ * As delta increases, topics will have more associated words
+ * As delta decreases, topics will have fewer associated words (and words are more likely to be uniquely associated with a topic) 
+ * A common default is 0.1
+   
+Other parameters we can tune include  
+
+ * **iter** the number of iterations (default 2000)
+ * **burnin** how many early iterations to discard (default 0)
+```{r}
+#let's create a 2-topic model
+mod2 <- LDA(x = dat_dtm, k = 2)
+
+str(mod2)
+mod2
+```
+
+```{r}
+#pick a higher number (3-5) and try again
+
+mod3 <- LDA(x = dat_dtm, k = 5)
+```
+
+## Can we find words strongly associated with particular topics?
+This is beta. For each topic, beta adds up to 1.
+```{r}
+# start with the 2-topic model
+
+topicmodels::get_terms(mod2, 10)
+topicmodels::get_terms(mod3, 10)
+topicmodels::get_topics(mod2)
+topicmodels::get_topics(mod3)
+topicmodels::perplexity(mod2)
+topicmodels::perplexity(mod3)
+
+str(mod2)
+
+m2_beta <- data.frame(model_number = c("Topic1", "Topic2"), mod2@beta)
+colnames(m2_beta) <- c("model_number", mod2@terms)
+
+m2_beta %>%
+  pivot_longer(-model_number, names_to = "word", values_to = "beta") %>%
+  group_by(model_number) %>%
+  slice_max(order_by = beta, n = 10) %>%
+  mutate(newbeta = exp(beta))
+
+#install.packages("reshape2")
+
+mod2 %>%
+  tidy(matrix = "beta") %>%
+  arrange(desc(beta)) %>%
+  group_by(topic) %>%
+  slice_max(order_by = beta, n = 5)
+
+
+
+
+m2_gamma <- data.frame(url_id = mod2@documents, mod2@gamma)
+colnames(m2_beta) <- c("url_id", c("Topic1","Topic2"))
+
+m2_gamma %>%
+  pivot_longer(-url_id, names_to = "topic", values_to = "gamma") %>%
+  group_by(topic) %>%
+  slice_max(order_by = gamma, n = 3)
+
+m2_gamma %>% mutate(top_topic = ifelse(X1 > X2, "Topic1", "Topic2")) %>%
+  count(top_topic)
+
+```
+
+```{r}
+# same code, but try it on your 3-topic model
+
+```
+
+### Visualize? Can use the old standard
+Faceted barplot
+```{r}
+??your_data_here?? %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(mapping = aes(x = beta, y = term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_y_reordered()
+```
+
+
+## Can we find documents strongly associated with specific topics?
+This is gamma. For each document, gamma adds up to 1.
+```{r}
+#gamma for the 2-topic model, find the max values per topic
+
+```
+
+```{r}
+#same thing with gamma for the other model
+
+```
+
+
+### Free Viz! Another way to look at words that most strongly associated with one of two topics
+```{r}
+#distance between topic-related words
+#(shows most single-topic-y words)
+
+corpus_lda2 %>% 
+  tidy(matrix = "beta") %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  pivot_wider(names_from = topic, values_from = beta) %>% 
+  filter(topic1 > .001 | topic2 > .001) %>%
+  mutate(log_ratio = log2(topic2 / topic1)) %>%
+  mutate(log_type = ifelse(log_ratio > 0, "Topic 2 Association", "Topic 1 Association"),
+         abs_log = abs(log_ratio)) %>%
+  group_by(log_type) %>%
+  slice_max(order_by = abs_log, n = 8) %>%
+  mutate(term = reorder_within(x = term, by = log_ratio, within = log_type)) %>%
+  ggplot(
+    aes(x = log_ratio, y = term, fill = log_type)
+  ) +
+  geom_col()+
+  scale_y_reordered()
+```
+
+## Are results different when we allow for correlation instead of instead of LDA independence?
+Because CTM uses a logistic normal distributions instead of a latent dirichlet allocation....  
+
+ * we no longer have alpha and delta parameters
+ * we still have beta and gamma outputs
+```{r}
+
+
+
+```
+
+#### What topics emerge? How should we label them? How evenly is our corpus split into the topics?
+
+### Which model do you like the best and why?
+
+
+```{r}
+install.packages("stm")
+
+# Perform basic prep
+dat_words <- dat %>%
+  unnest_tokens(output = word, input = posts, token = "words") %>%
+  anti_join(get_stopwords(source = "smart")) %>% 
+  filter(str_detect(word, pattern = "[:alpha:]")) %>%
+  count(url, date, word) %>%
+  #add an ID column
+  mutate(url_id = str_extract(url, "(?<=comments/)[:graph:]{7}"))
+
+stm::asSTMCorpus(dat_words)
+
+```
+
